@@ -128,6 +128,22 @@ export default function DetectorPage() {
   const [apiResults, setApiResults] = useState<any>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
 
+  // AI-generated content states
+  const [diseaseInfo, setDiseaseInfo] = useState<string>("");
+  const [diseaseCauses, setDiseaseCauses] = useState<string>("");
+  const [diseaseSymptoms, setDiseaseSymptoms] = useState<string>("");
+  const [diseaseTreatment, setDiseaseTreatment] = useState<string>("");
+  const [diseasePrevention, setDiseasePrevention] = useState<string>("");
+  const [diseaseAlternatives, setDiseaseAlternatives] = useState<string>("");
+  
+  // Loading states for each section
+  const [loadingInfo, setLoadingInfo] = useState(false);
+  const [loadingCauses, setLoadingCauses] = useState(false);
+  const [loadingSymptoms, setLoadingSymptoms] = useState(false);
+  const [loadingTreatment, setLoadingTreatment] = useState(false);
+  const [loadingPrevention, setLoadingPrevention] = useState(false);
+  const [loadingAlternatives, setLoadingAlternatives] = useState(false);
+
   // Auto-scroll to bottom of logs when new steps are added
   useEffect(() => {
     if (expandedLogs && logsContainerRef.current) {
@@ -163,6 +179,160 @@ export default function DetectorPage() {
     e.preventDefault();
     setIsDragging(false);
   }, []);
+
+  // Typing animation function
+  const typeText = async (text: string, setter: (val: string) => void) => {
+    setter(""); // Clear previous content
+    const words = text.split(" ");
+    for (let i = 0; i < words.length; i++) {
+      await new Promise(resolve => setTimeout(resolve, 30)); // 30ms per word
+      setter(words.slice(0, i + 1).join(" "));
+    }
+  };
+
+  // Generate AI content for each section
+  const generateDiseaseInfo = async (diseaseName: string) => {
+    setLoadingInfo(true);
+    try {
+      const response = await fetch('/api/generate-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `What is ${diseaseName}? Provide a concise, in-depth explanation in 2-5 sentences. Focus on what it is, how it affects mango plants, and its key characteristics. No fluff, just essential information.`
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        await typeText(data.text, setDiseaseInfo);
+      }
+    } catch (error) {
+      console.error('Error generating disease info:', error);
+      setDiseaseInfo("Failed to generate information.");
+    } finally {
+      setLoadingInfo(false);
+    }
+  };
+
+  const generateDiseaseCauses = async (diseaseName: string) => {
+    setLoadingCauses(true);
+    try {
+      const response = await fetch('/api/generate-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `What are the typical causes for ${diseaseName} in mango plants? List 2-4 main causes or conditions that lead to this disease. Be concise and specific.`
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        await typeText(data.text, setDiseaseCauses);
+      }
+    } catch (error) {
+      console.error('Error generating causes:', error);
+      setDiseaseCauses("Failed to generate information.");
+    } finally {
+      setLoadingCauses(false);
+    }
+  };
+
+  const generateDiseaseSymptoms = async (diseaseName: string) => {
+    setLoadingSymptoms(true);
+    try {
+      const response = await fetch('/api/generate-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `What are the key symptoms to check for ${diseaseName} in mango plants? List 3-5 specific visual indicators that help identify this disease. Be concise and practical.`
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        await typeText(data.text, setDiseaseSymptoms);
+      }
+    } catch (error) {
+      console.error('Error generating symptoms:', error);
+      setDiseaseSymptoms("Failed to generate information.");
+    } finally {
+      setLoadingSymptoms(false);
+    }
+  };
+
+  const generateDiseaseTreatment = async (diseaseName: string) => {
+    setLoadingTreatment(true);
+    try {
+      const response = await fetch('/api/generate-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `What is the recommended treatment plan for ${diseaseName} in mango plants? Provide 3-5 actionable steps. Be specific about treatments, applications, and timing. No fluff.`
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        await typeText(data.text, setDiseaseTreatment);
+      }
+    } catch (error) {
+      console.error('Error generating treatment:', error);
+      setDiseaseTreatment("Failed to generate information.");
+    } finally {
+      setLoadingTreatment(false);
+    }
+  };
+
+  const generateDiseasePrevention = async (diseaseName: string) => {
+    setLoadingPrevention(true);
+    try {
+      const response = await fetch('/api/generate-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `What are the best preventive measures for ${diseaseName} in mango plants? List 3-5 practical prevention strategies. Be concise and actionable.`
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        await typeText(data.text, setDiseasePrevention);
+      }
+    } catch (error) {
+      console.error('Error generating prevention:', error);
+      setDiseasePrevention("Failed to generate information.");
+    } finally {
+      setLoadingPrevention(false);
+    }
+  };
+
+  const generateDiseaseAlternatives = async (allProbabilities: any[]) => {
+    setLoadingAlternatives(true);
+    try {
+      const probabilitiesText = allProbabilities
+        .map(p => `${p.disease}: ${p.percentage.toFixed(2)}%`)
+        .join(', ');
+      
+      const response = await fetch('/api/generate-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `Given these disease detection probabilities for a mango plant: ${probabilitiesText}
+
+The top prediction has moderate confidence. Please:
+1. Acknowledge the model's uncertainty
+2. Describe the top 2-3 most likely alternatives and what distinguishes them
+3. Suggest what signs to look for if the primary diagnosis doesn't seem correct
+
+Be concise but informative (3-5 sentences total).`
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        await typeText(data.text, setDiseaseAlternatives);
+      }
+    } catch (error) {
+      console.error('Error generating alternatives:', error);
+      setDiseaseAlternatives("Failed to generate information.");
+    } finally {
+      setLoadingAlternatives(false);
+    }
+  };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -313,6 +483,22 @@ export default function DetectorPage() {
           setApiResults(result.data);
           if (result.success) {
             console.log('API Results:', result.data);
+            
+            // Fire all AI content generation calls asynchronously
+            const diseaseName = result.data.prediction?.disease;
+            if (diseaseName) {
+              // Fire all calls at once - they'll update independently
+              generateDiseaseInfo(diseaseName);
+              generateDiseaseCauses(diseaseName);
+              generateDiseaseSymptoms(diseaseName);
+              generateDiseaseTreatment(diseaseName);
+              generateDiseasePrevention(diseaseName);
+              
+              // Generate alternatives if confidence is low
+              if (result.data.prediction?.confidence_percentage < 80 && result.data.all_probabilities) {
+                generateDiseaseAlternatives(result.data.all_probabilities);
+              }
+            }
           }
           setIsAnalyzing(false);
           setShowResults(true);
@@ -601,17 +787,27 @@ export default function DetectorPage() {
                   <div className="bg-muted/30 p-4 rounded-lg border space-y-3">
                     <div>
                       <h4 className="text-sm font-semibold mb-1">What is {apiResults?.prediction?.disease || 'this disease'}?</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {/* Empty - to be filled with actual information */}
-                        Information about this disease will be displayed here.
-                      </p>
+                      {loadingInfo ? (
+                        <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
+                          ✨ Generating...
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {diseaseInfo || "Information about this disease will be displayed here."}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <h4 className="text-sm font-semibold mb-1">Typical causes for {apiResults?.prediction?.disease || 'this disease'} are:</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {/* Empty - to be filled with actual information */}
-                        Causes and conditions that lead to this disease will be displayed here.
-                      </p>
+                      {loadingCauses ? (
+                        <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
+                          ✨ Generating...
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {diseaseCauses || "Causes and conditions that lead to this disease will be displayed here."}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -620,10 +816,15 @@ export default function DetectorPage() {
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Key Symptoms to Check</h3>
                   <div className="bg-muted/30 p-4 rounded-lg border">
-                    <p className="text-sm text-muted-foreground">
-                      {/* Empty - to be filled with actual symptoms */}
-                      Key symptoms and visual indicators will be displayed here.
-                    </p>
+                    {loadingSymptoms ? (
+                      <p className="text-sm text-muted-foreground animate-pulse">
+                        ✨ Generating...
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {diseaseSymptoms || "Key symptoms and visual indicators will be displayed here."}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -631,10 +832,15 @@ export default function DetectorPage() {
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Recommended Treatment Plan</h3>
                   <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-900">
-                    <p className="text-sm leading-relaxed">
-                      {/* Empty - to be filled with treatment information */}
-                      Treatment recommendations and protocols will be displayed here.
-                    </p>
+                    {loadingTreatment ? (
+                      <p className="text-sm leading-relaxed animate-pulse">
+                        ✨ Generating...
+                      </p>
+                    ) : (
+                      <p className="text-sm leading-relaxed">
+                        {diseaseTreatment || "Treatment recommendations and protocols will be displayed here."}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -642,10 +848,15 @@ export default function DetectorPage() {
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Preventive Measures</h3>
                   <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900">
-                    <p className="text-sm leading-relaxed">
-                      {/* Empty - to be filled with preventive measures */}
-                      Preventive measures and best practices will be displayed here.
-                    </p>
+                    {loadingPrevention ? (
+                      <p className="text-sm leading-relaxed animate-pulse">
+                        ✨ Generating...
+                      </p>
+                    ) : (
+                      <p className="text-sm leading-relaxed">
+                        {diseasePrevention || "Preventive measures and best practices will be displayed here."}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -653,28 +864,16 @@ export default function DetectorPage() {
                 {apiResults?.prediction && apiResults.prediction.confidence_percentage < 80 && (
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground mb-2">Alternative Possibilities</h3>
-                    <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-900 space-y-3">
-                      <div>
-                        <h4 className="text-sm font-semibold mb-1">
-                          {apiResults.prediction.disease} ({apiResults.prediction.confidence_percentage.toFixed(2)}% confidence)
-                        </h4>
-                        <p className="text-sm text-muted-foreground">
-                          The AI model has detected this disease with moderate confidence. Consider the following alternatives:
+                    <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-900">
+                      {loadingAlternatives ? (
+                        <p className="text-sm text-muted-foreground animate-pulse">
+                          ✨ Generating alternative diagnosis analysis...
                         </p>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-semibold mb-1">Other Potential Issues</h4>
-                        {apiResults.all_probabilities && apiResults.all_probabilities.length > 1 && (
-                          <ul className="space-y-1">
-                            {apiResults.all_probabilities.slice(1, 4).map((item: any, idx: number) => (
-                              <li key={idx} className="text-sm flex items-center justify-between">
-                                <span>{item.disease}</span>
-                                <span className="text-muted-foreground">{item.percentage.toFixed(2)}%</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {diseaseAlternatives || "Alternative diagnosis information will be displayed here."}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
