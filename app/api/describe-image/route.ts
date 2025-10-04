@@ -13,7 +13,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Initialize the Gemini client
-    const apiKey = process.env.GOOGLE_GEMINI_API_KEY || 'AIzaSyDY5uRPXYZuV__SThdFHxwbrBjCoCmGA4o';
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+    
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'GOOGLE_GEMINI_API_KEY not configured' },
+        { status: 500 }
+      );
+    }
+    
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
 
