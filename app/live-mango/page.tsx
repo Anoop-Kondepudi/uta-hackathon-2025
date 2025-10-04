@@ -3,13 +3,17 @@
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Video, VideoOff, Camera } from "lucide-react";
+import { Video, VideoOff, Camera, Bug, Image as ImageIcon } from "lucide-react";
 
 export default function LiveMangoPage() {
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [error, setError] = useState<string>("");
+  const [showDebug, setShowDebug] = useState(false);
+  const [isDescribing, setIsDescribing] = useState(false);
+  const [description, setDescription] = useState<string>("");
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const startLiveMode = async () => {
     try {
@@ -52,6 +56,57 @@ export default function LiveMangoPage() {
     setIsLiveMode(false);
   };
 
+  const captureAndDescribeImage = async () => {
+    if (!videoRef.current || !isLiveMode) {
+      setError("Camera must be active to capture image");
+      return;
+    }
+
+    setIsDescribing(true);
+    setError("");
+    setDescription("");
+
+    try {
+      // Create a canvas to capture the current frame
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        throw new Error("Failed to get canvas context");
+      }
+
+      // Draw the current video frame onto the canvas
+      ctx.drawImage(videoRef.current, 0, 0);
+
+      // Convert canvas to base64 image
+      const base64Image = canvas.toDataURL('image/png');
+
+      // Call the API to describe the image
+      const response = await fetch('/api/describe-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image: base64Image }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to describe image');
+      }
+
+      const data = await response.json();
+      setDescription(data.description);
+    } catch (err) {
+      console.error('Error describing image:', err);
+      setError(err instanceof Error ? err.message : 'Failed to describe image');
+    } finally {
+      setIsDescribing(false);
+    }
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -62,7 +117,48 @@ export default function LiveMangoPage() {
   }, []);
 
   return (
-    <div className="min-h-screen p-8 bg-background">
+    <div className="min-h-screen p-8 bg-background relative">
+      {/* Debug Button */}
+      <div className="fixed top-20 right-4 z-50">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() => setShowDebug(!showDebug)}
+        >
+          <Bug className="w-4 h-4" />
+          Debug
+        </Button>
+
+        {/* Debug Dropdown */}
+        {showDebug && (
+          <Card className="mt-2 w-64 shadow-lg">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Debug Tools</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button
+                onClick={captureAndDescribeImage}
+                disabled={!isLiveMode || isDescribing}
+                variant="outline"
+                className="w-full justify-start"
+                size="sm"
+              >
+                <ImageIcon className="w-4 h-4 mr-2" />
+                {isDescribing ? "Analyzing..." : "Describe Image"}
+              </Button>
+
+              {description && (
+                <div className="mt-3 p-3 bg-muted rounded-md text-xs">
+                  <p className="font-semibold mb-1">AI Description:</p>
+                  <p className="text-muted-foreground">{description}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold">Live Mango Monitor</h1>

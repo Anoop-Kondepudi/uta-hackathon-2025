@@ -26,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
         <head />
-        <body className={`${interSans.variable} font-sans`}>
+        <body className={`${interSans.variable} font-sans`} suppressHydrationWarning>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"

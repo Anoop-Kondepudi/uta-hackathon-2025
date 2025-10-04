@@ -145,6 +145,7 @@ export default function DetectorPage() {
   const [progress, setProgress] = useState(0);
   const [allSteps, setAllSteps] = useState<string[]>([]);
   const [expandedLogs, setExpandedLogs] = useState(false);
+  const [apiResults, setApiResults] = useState<any>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom of logs when new steps are added
@@ -241,10 +242,41 @@ export default function DetectorPage() {
         
         setTimeout(processNextStep, delay);
       } else {
-        // Analysis complete
-        setTimeout(() => {
-          setIsAnalyzing(false);
-          setShowResults(true);
+        // Analysis complete - now call the real API
+        setTimeout(async () => {
+          try {
+            // Call the disease prediction API
+            const response = await fetch('/api/predict-disease', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ image: base64String }),
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+              setApiResults(data);
+              console.log('API Results:', data);
+            } else {
+              console.error('API call failed:', data);
+              setApiResults({ 
+                error: data.error || 'Failed to get prediction from API',
+                details: data.details,
+                instructions: data.instructions
+              });
+            }
+          } catch (error) {
+            console.error('Error calling API:', error);
+            setApiResults({ 
+              error: 'Network error',
+              details: error instanceof Error ? error.message : 'Unknown error'
+            });
+          } finally {
+            setIsAnalyzing(false);
+            setShowResults(true);
+          }
         }, 300);
       }
     };
@@ -433,6 +465,71 @@ export default function DetectorPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* API Results - Raw Data Display */}
+                {apiResults && (
+                  <div className="bg-muted/50 p-4 rounded-lg border-2 border-primary/20">
+                    <h3 className="text-sm font-bold text-primary mb-3">🤖 AI Model Results (Live)</h3>
+                    
+                    {apiResults.error ? (
+                      <div className="bg-destructive/10 border border-destructive rounded-md p-3 space-y-2">
+                        <p className="font-semibold text-destructive flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4" />
+                          {apiResults.error}
+                        </p>
+                        {apiResults.details && (
+                          <p className="text-xs text-muted-foreground">{apiResults.details}</p>
+                        )}
+                        {apiResults.instructions && (
+                          <div className="mt-2 p-2 bg-background rounded text-xs">
+                            <p className="font-semibold mb-1">To fix this:</p>
+                            <code className="text-primary">{apiResults.instructions}</code>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {/* Main Prediction */}
+                        {apiResults.prediction && (
+                          <div className="bg-background p-3 rounded-md">
+                            <p className="text-xs text-muted-foreground mb-1">Detected Disease:</p>
+                            <p className="text-lg font-bold">{apiResults.prediction.disease}</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Confidence: {apiResults.prediction.confidence_percentage?.toFixed(2)}%
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* All Probabilities */}
+                        {apiResults.all_probabilities && (
+                          <div className="bg-background p-3 rounded-md">
+                            <p className="text-xs font-semibold mb-2">All Disease Probabilities:</p>
+                            <div className="space-y-1 text-xs">
+                              {apiResults.all_probabilities.map((item: any, idx: number) => (
+                                <div key={idx} className="flex justify-between items-center">
+                                  <span className={idx === 0 ? "font-semibold" : ""}>{item.disease}</span>
+                                  <span className={idx === 0 ? "font-semibold text-primary" : "text-muted-foreground"}>
+                                    {item.percentage.toFixed(2)}%
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Raw JSON Display */}
+                        <details className="text-xs">
+                          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                            View Raw JSON Response
+                          </summary>
+                          <pre className="mt-2 p-2 bg-muted rounded text-[10px] overflow-auto max-h-40">
+                            {JSON.stringify(apiResults, null, 2)}
+                          </pre>
+                        </details>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Plant Type */}
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Plant Type</h3>
@@ -442,7 +539,7 @@ export default function DetectorPage() {
                 {/* Disease Detected */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">Disease Detected</h3>
+                    <h3 className="text-sm font-medium text-muted-foreground">Disease Detected (Mock Data)</h3>
                     <Badge variant="destructive">{MOCK_RESULTS.severity}</Badge>
                   </div>
                   <p className="text-lg font-semibold text-red-600 flex items-center gap-2">
