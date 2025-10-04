@@ -204,6 +204,79 @@ export default function DetectorPage() {
     setAllSteps([]);
     setExpandedLogs(false);
 
+    // Start API calls immediately in parallel with animation
+    const apiCallsPromise = (async () => {
+      try {
+        // Step 1: Check if the image is a plant leaf
+        console.log('🔍 Checking if image is a plant...');
+        const checkResponse = await fetch('/api/check-plant', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ image: base64String }),
+        });
+
+        const checkData = await checkResponse.json();
+        console.log('Plant check result:', checkData);
+
+        if (!checkResponse.ok) {
+          throw new Error(checkData.error || 'Failed to check if image is a plant');
+        }
+
+        // If not a plant, show confirmation dialog
+        if (!checkData.isPlant) {
+          const userConfirmed = window.confirm(
+            '⚠️ This image doesn\'t appear to be a plant leaf.\n\n' +
+            'Are you sure the image you uploaded is a leaf from a mango tree?\n\n' +
+            'Click "OK" to proceed anyway, or "Cancel" to upload a different image.'
+          );
+
+          if (!userConfirmed) {
+            // User cancelled
+            return { cancelled: true };
+          }
+          console.log('⚠️ User confirmed to proceed despite not being a plant');
+        } else {
+          console.log('✅ Image confirmed as plant leaf');
+        }
+
+        // Step 2: Call the disease prediction API
+        console.log('🤖 Running disease prediction...');
+        const response = await fetch('/api/predict-disease', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ image: base64String }),
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+          return { success: true, data };
+        } else {
+          return { 
+            success: false, 
+            data: { 
+              error: data.error || 'Failed to get prediction from API',
+              details: data.details,
+              instructions: data.instructions
+            }
+          };
+        }
+      } catch (error) {
+        console.error('Error calling API:', error);
+        return { 
+          success: false, 
+          data: { 
+            error: 'Network error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          }
+        };
+      }
+    })();
+
     // Simulate the analysis process with variable timing for realism
     let stepIndex = 0;
     const totalDuration = 7000; // 7 seconds total
@@ -242,41 +315,27 @@ export default function DetectorPage() {
         
         setTimeout(processNextStep, delay);
       } else {
-        // Analysis complete - now call the real API
+        // Animation complete - wait for API calls to finish
         setTimeout(async () => {
-          try {
-            // Call the disease prediction API
-            const response = await fetch('/api/predict-disease', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ image: base64String }),
-            });
-
-            const data = await response.json();
-            
-            if (response.ok) {
-              setApiResults(data);
-              console.log('API Results:', data);
-            } else {
-              console.error('API call failed:', data);
-              setApiResults({ 
-                error: data.error || 'Failed to get prediction from API',
-                details: data.details,
-                instructions: data.instructions
-              });
-            }
-          } catch (error) {
-            console.error('Error calling API:', error);
-            setApiResults({ 
-              error: 'Network error',
-              details: error instanceof Error ? error.message : 'Unknown error'
-            });
-          } finally {
+          const result = await apiCallsPromise;
+          
+          if (result.cancelled) {
+            // User cancelled, reset the analysis
             setIsAnalyzing(false);
-            setShowResults(true);
+            setShowResults(false);
+            setAllSteps([]);
+            setCurrentStep(0);
+            setProgress(0);
+            return;
           }
+          
+          // Set results and show them
+          setApiResults(result.data);
+          if (result.success) {
+            console.log('API Results:', result.data);
+          }
+          setIsAnalyzing(false);
+          setShowResults(true);
         }, 300);
       }
     };
