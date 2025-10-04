@@ -111,27 +111,7 @@ const LOADING_STEPS = [
   "Analysis complete!"
 ];
 
-// Hardcoded disease results (you can change these)
-const MOCK_RESULTS = {
-  plantType: "Mango (Mangifera indica)",
-  disease: "Anthracnose",
-  severity: "Moderate",
-  confidence: 87.5,
-  description: "Anthracnose is a fungal disease caused by Colletotrichum gloeosporioides. It primarily affects mango leaves, flowers, and fruits, causing dark, sunken lesions.",
-  symptoms: [
-    "Dark brown to black spots on leaves",
-    "Sunken lesions with pink spore masses",
-    "Premature leaf drop",
-    "Fruit rotting during storage"
-  ],
-  treatment: "Apply copper-based fungicides during flowering and fruit development. Remove and destroy infected plant parts. Ensure proper drainage and avoid overhead irrigation.",
-  preventiveMeasures: [
-    "Prune trees to improve air circulation",
-    "Apply preventive fungicide sprays",
-    "Remove fallen leaves and debris",
-    "Harvest fruits at proper maturity"
-  ]
-};
+
 
 export default function DetectorPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -592,66 +572,123 @@ export default function DetectorPage() {
                 {/* Plant Type */}
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Plant Type</h3>
-                  <p className="text-lg font-semibold">{MOCK_RESULTS.plantType}</p>
+                  <p className="text-lg font-semibold">Mango</p>
                 </div>
 
                 {/* Disease Detected */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">Disease Detected (Mock Data)</h3>
-                    <Badge variant="destructive">{MOCK_RESULTS.severity}</Badge>
-                  </div>
-                  <p className="text-lg font-semibold text-red-600 flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5" />
-                    {MOCK_RESULTS.disease}
-                  </p>
-                  <div className="mt-2">
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <span>Confidence</span>
-                      <span className="font-semibold">{MOCK_RESULTS.confidence}%</span>
-                    </div>
-                    <Progress value={MOCK_RESULTS.confidence} className="h-2" />
-                  </div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Disease Detected</h3>
+                  {apiResults?.prediction && (
+                    <>
+                      <p className="text-lg font-semibold text-red-600 flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5" />
+                        {apiResults.prediction.disease}
+                      </p>
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span>Confidence</span>
+                          <span className="font-semibold">{apiResults.prediction.confidence_percentage?.toFixed(2)}%</span>
+                        </div>
+                        <Progress value={apiResults.prediction.confidence_percentage} className="h-2" />
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Description */}
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Description</h3>
-                  <p className="text-sm leading-relaxed">{MOCK_RESULTS.description}</p>
+                  <div className="bg-muted/30 p-4 rounded-lg border space-y-3">
+                    <div>
+                      <h4 className="text-sm font-semibold mb-1">What is {apiResults?.prediction?.disease || 'this disease'}?</h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {/* Empty - to be filled with actual information */}
+                        Information about this disease will be displayed here.
+                      </p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold mb-1">Typical causes for {apiResults?.prediction?.disease || 'this disease'} are:</h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {/* Empty - to be filled with actual information */}
+                        Causes and conditions that lead to this disease will be displayed here.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Symptoms */}
+                {/* Key Symptoms to Check */}
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Observed Symptoms</h3>
-                  <ul className="space-y-1">
-                    {MOCK_RESULTS.symptoms.map((symptom, idx) => (
-                      <li key={idx} className="text-sm flex items-start gap-2">
-                        <span className="text-red-500 mt-1">•</span>
-                        <span>{symptom}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Key Symptoms to Check</h3>
+                  <div className="bg-muted/30 p-4 rounded-lg border">
+                    <p className="text-sm text-muted-foreground">
+                      {/* Empty - to be filled with actual symptoms */}
+                      Key symptoms and visual indicators will be displayed here.
+                    </p>
+                  </div>
                 </div>
 
-                {/* Treatment */}
+                {/* Recommended Treatment Plan */}
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Recommended Treatment</h3>
-                  <p className="text-sm leading-relaxed bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-200 dark:border-blue-900">
-                    {MOCK_RESULTS.treatment}
-                  </p>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Recommended Treatment Plan</h3>
+                  <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-900">
+                    <p className="text-sm leading-relaxed">
+                      {/* Empty - to be filled with treatment information */}
+                      Treatment recommendations and protocols will be displayed here.
+                    </p>
+                  </div>
                 </div>
 
                 {/* Preventive Measures */}
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Preventive Measures</h3>
-                  <ul className="space-y-1">
-                    {MOCK_RESULTS.preventiveMeasures.map((measure, idx) => (
-                      <li key={idx} className="text-sm flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                        <span>{measure}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900">
+                    <p className="text-sm leading-relaxed">
+                      {/* Empty - to be filled with preventive measures */}
+                      Preventive measures and best practices will be displayed here.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Alternative Possibilities (only if confidence < 80%) */}
+                {apiResults?.prediction && apiResults.prediction.confidence_percentage < 80 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-2">Alternative Possibilities</h3>
+                    <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-900 space-y-3">
+                      <div>
+                        <h4 className="text-sm font-semibold mb-1">
+                          {apiResults.prediction.disease} ({apiResults.prediction.confidence_percentage.toFixed(2)}% confidence)
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          The AI model has detected this disease with moderate confidence. Consider the following alternatives:
+                        </p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold mb-1">Other Potential Issues</h4>
+                        {apiResults.all_probabilities && apiResults.all_probabilities.length > 1 && (
+                          <ul className="space-y-1">
+                            {apiResults.all_probabilities.slice(1, 4).map((item: any, idx: number) => (
+                              <li key={idx} className="text-sm flex items-center justify-between">
+                                <span>{item.disease}</span>
+                                <span className="text-muted-foreground">{item.percentage.toFixed(2)}%</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Important Disclaimer */}
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Important Disclaimer</h3>
+                  <div className="bg-muted/50 p-4 rounded-lg border border-muted-foreground/20">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      This AI-powered diagnosis is provided for informational purposes only and should not replace professional agricultural advice. 
+                      For accurate diagnosis and treatment recommendations, please consult with a certified plant pathologist or agricultural extension service. 
+                      The accuracy of results depends on image quality and may vary based on disease stage and environmental conditions.
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
