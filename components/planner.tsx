@@ -357,7 +357,7 @@ export default function Planner() {
                 return date < today || date >= twoWeeksFromNow
               }}
               defaultMonth={new Date()}
-              className="rounded-lg border shadow-sm [--cell-size:--spacing(11)] md:[--cell-size:--spacing(13)]"
+              className="[--cell-size:--spacing(11)] md:[--cell-size:--spacing(13)]"
               formatters={{
                 formatMonthDropdown: (date) => {
                   return date.toLocaleString("default", { month: "long" })
