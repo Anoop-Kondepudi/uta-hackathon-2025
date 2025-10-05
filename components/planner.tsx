@@ -168,7 +168,7 @@ export default function Planner() {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await fetch("http://localhost:8000/weather")
+      const response = await fetch("http://localhost:8001/weather")
       if (!response.ok) {
         throw new Error("Failed to fetch weather data")
       }
@@ -191,7 +191,7 @@ export default function Planner() {
     setIsGeneratingTwoWeek(true)
     setError(null)
     try {
-      const response = await fetch("http://localhost:8000/generate-two-week-schedule", {
+      const response = await fetch("http://localhost:8001/generate-two-week-schedule", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -222,7 +222,7 @@ export default function Planner() {
     setIsGeneratingAnnual(true)
     setError(null)
     try {
-      const response = await fetch("http://localhost:8000/generate-annual-plan", {
+      const response = await fetch("http://localhost:8001/generate-annual-plan", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
