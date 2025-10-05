@@ -11,6 +11,14 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
+import HighlightedText from "@/components/highlighted-text";
+
+interface ExtractedTerm {
+  term: string;
+  definition: string;
+  usage?: string;
+  category: 'pesticide' | 'fungicide' | 'treatment' | 'nutrient' | 'practice' | 'condition';
+}
 
 const LOADING_STEPS = [
   "Initializing image processor...",
@@ -148,6 +156,11 @@ export default function DetectorPage() {
   const [loadingPrevention, setLoadingPrevention] = useState(false);
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
+  // Extracted terms for highlighting
+  const [extractedTerms, setExtractedTerms] = useState<ExtractedTerm[]>([]);
+  const [isExtractingTerms, setIsExtractingTerms] = useState(false);
+  const [showTermsNotification, setShowTermsNotification] = useState(false);
+
   // Notification state
   const [showCompleteNotification, setShowCompleteNotification] =
     useState(false);
@@ -189,7 +202,7 @@ export default function DetectorPage() {
     }
   }, [allSteps, expandedLogs]);
 
-  // Check if all sections are complete and show notification
+  // Check if all sections are complete and show notification + extract terms
   useEffect(() => {
     const allComplete =
       completedSections.info &&
@@ -202,6 +215,10 @@ export default function DetectorPage() {
 
     if (allComplete && showResults && !showCompleteNotification) {
       setShowCompleteNotification(true);
+      
+      // Extract terms from all generated content
+      extractTermsFromContent();
+      
       // Auto-hide after 4 seconds
       const timer = setTimeout(() => {
         setShowCompleteNotification(false);
@@ -219,6 +236,62 @@ export default function DetectorPage() {
       return () => clearTimeout(timer);
     }
   }, [completedSections, showResults, apiResults]);
+
+  // Extract technical terms from all generated content
+  const extractTermsFromContent = async () => {
+    if (isExtractingTerms) return; // Prevent duplicate calls
+    
+    setIsExtractingTerms(true);
+    console.log('🔍 Extracting technical terms from content...');
+    
+    try {
+      // Combine all content sections
+      const combinedContent = [
+        diseaseInfo,
+        diseaseCauses,
+        diseaseSymptoms,
+        diseaseTreatment,
+        diseasePrevention,
+        diseaseAlternatives
+      ].filter(Boolean).join('\n\n');
+
+      if (!combinedContent.trim()) {
+        console.log('⚠️ No content to extract terms from');
+        setIsExtractingTerms(false);
+        return;
+      }
+
+      const response = await fetch('/api/extract-terms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content: combinedContent }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        console.log(`✅ Extracted ${data.terms.length} terms for highlighting`);
+        setExtractedTerms(data.terms);
+        
+        // Show success notification
+        if (data.terms.length > 0) {
+          setShowTermsNotification(true);
+          // Auto-hide after 5 seconds
+          setTimeout(() => {
+            setShowTermsNotification(false);
+          }, 5000);
+        }
+      } else {
+        console.error('Failed to extract terms:', data.error);
+      }
+    } catch (error) {
+      console.error('Error extracting terms:', error);
+    } finally {
+      setIsExtractingTerms(false);
+    }
+  };
 
   const convertToBase64 = (file: File) => {
     const reader = new FileReader();
@@ -885,6 +958,40 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
         </div>
       )}
 
+      {/* Term Extraction Notification */}
+      {isExtractingTerms && (
+        <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-top duration-300">
+          <div className="bg-blue-50 dark:bg-blue-950 border-2 border-blue-200 dark:border-blue-800 rounded-lg shadow-lg p-3 flex items-center gap-3 max-w-sm">
+            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                Extracting Terms...
+              </p>
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                Highlighting technical terms
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Terms Extracted Success Notification */}
+      {showTermsNotification && !isExtractingTerms && extractedTerms.length > 0 && showResults && (
+        <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-top duration-300">
+          <div className="bg-purple-50 dark:bg-purple-950 border-2 border-purple-200 dark:border-purple-800 rounded-lg shadow-lg p-3 flex items-center gap-3 max-w-sm">
+            <CheckCircle2 className="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-purple-900 dark:text-purple-100">
+                {extractedTerms.length} Terms Highlighted
+              </p>
+              <p className="text-xs text-purple-700 dark:text-purple-300">
+                Hover over underlined words for details
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Debug Button */}
       <Button
         variant="outline"
@@ -1253,13 +1360,10 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
                           ✨ Generating...
                         </p>
                       ) : (
-                        <div
+                        <HighlightedText
+                          content={diseaseInfo || "Information about this disease will be displayed here."}
+                          terms={extractedTerms}
                           className="text-sm text-foreground leading-relaxed"
-                          dangerouslySetInnerHTML={{
-                            __html:
-                              diseaseInfo ||
-                              "Information about this disease will be displayed here.",
-                          }}
                         />
                       )}
                     </div>
@@ -1277,13 +1381,10 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
                           ✨ Generating...
                         </p>
                       ) : (
-                        <div
+                        <HighlightedText
+                          content={diseaseCauses || "Causes and conditions that lead to this disease will be displayed here."}
+                          terms={extractedTerms}
                           className="text-sm text-foreground leading-relaxed"
-                          dangerouslySetInnerHTML={{
-                            __html:
-                              diseaseCauses ||
-                              "Causes and conditions that lead to this disease will be displayed here.",
-                          }}
                         />
                       )}
                     </div>
@@ -1304,13 +1405,10 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
                         ✨ Generating...
                       </p>
                     ) : (
-                      <div
+                      <HighlightedText
+                        content={diseaseSymptoms || "Key symptoms and visual indicators will be displayed here."}
+                        terms={extractedTerms}
                         className="text-sm text-foreground leading-relaxed"
-                        dangerouslySetInnerHTML={{
-                          __html:
-                            diseaseSymptoms ||
-                            "Key symptoms and visual indicators will be displayed here.",
-                        }}
                       />
                     )}
                   </div>
@@ -1337,18 +1435,15 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
                         ✨ Generating...
                       </p>
                     ) : (
-                      <div
+                      <HighlightedText
+                        content={diseaseTreatment || "Treatment recommendations and protocols will be displayed here."}
+                        terms={extractedTerms}
                         className={`text-sm leading-relaxed ${
                           apiResults?.prediction?.disease?.toLowerCase() ===
                           "healthy"
                             ? "text-foreground dark:text-green-100"
                             : "text-foreground dark:text-blue-100"
                         }`}
-                        dangerouslySetInnerHTML={{
-                          __html:
-                            diseaseTreatment ||
-                            "Treatment recommendations and protocols will be displayed here.",
-                        }}
                       />
                     )}
                   </div>
@@ -1368,13 +1463,10 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
                         ✨ Generating...
                       </p>
                     ) : (
-                      <div
+                      <HighlightedText
+                        content={diseasePrevention || "Preventive measures and best practices will be displayed here."}
+                        terms={extractedTerms}
                         className="text-sm text-foreground dark:text-green-100 leading-relaxed"
-                        dangerouslySetInnerHTML={{
-                          __html:
-                            diseasePrevention ||
-                            "Preventive measures and best practices will be displayed here.",
-                        }}
                       />
                     )}
                   </div>
@@ -1393,13 +1485,10 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
                             ✨ Generating alternative diagnosis analysis...
                           </p>
                         ) : (
-                          <div
+                          <HighlightedText
+                            content={diseaseAlternatives || "Alternative diagnosis information will be displayed here."}
+                            terms={extractedTerms}
                             className="text-sm text-foreground dark:text-yellow-100 leading-relaxed"
-                            dangerouslySetInnerHTML={{
-                              __html:
-                                diseaseAlternatives ||
-                                "Alternative diagnosis information will be displayed here.",
-                            }}
                           />
                         )}
                       </div>
