@@ -15,9 +15,12 @@ import {
   ChevronUp,
   AlertCircle,
   CheckCircle2,
+  Camera,
+  Video,
+  VideoOff,
 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
-import HighlightedText from "@/components/highlighted-text";
+import AnalysisResults from "@/components/analysis-results";
 
 interface ExtractedTerm {
   term: string;
@@ -131,6 +134,8 @@ const LOADING_STEPS = [
 ];
 
 export default function DetectorPage() {
+  // Tab state for Upload vs Camera
+  const [detectorMode, setDetectorMode] = useState<"upload" | "camera">("upload");
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [base64String, setBase64String] = useState<string>("");
@@ -145,6 +150,20 @@ export default function DetectorPage() {
   const [expandedLogs, setExpandedLogs] = useState(false);
   const [apiResults, setApiResults] = useState<any>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
+
+  // Camera states
+  const [isLiveMode, setIsLiveMode] = useState(false);
+  const [cameraError, setCameraError] = useState<string>("");
+  const [isPlantDetected, setIsPlantDetected] = useState<boolean | null>(null);
+  const [hasMultipleLeaves, setHasMultipleLeaves] = useState<boolean>(false);
+  const [requestCount, setRequestCount] = useState(0);
+  const [lastResponseTime, setLastResponseTime] = useState<number>(0);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [consecutiveSingleLeafCount, setConsecutiveSingleLeafCount] = useState(0);
+  const [detectionStatus, setDetectionStatus] = useState<'no-leaf' | 'single-leaf' | 'multiple-leaves' | 'initializing'>('initializing');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // AI-generated content states
   const [diseaseInfo, setDiseaseInfo] = useState<string>("");
@@ -945,6 +964,158 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldAutoAnalyze, base64String]);
 
+  // Camera utility functions
+  const captureFrame = (): string | null => {
+    if (!videoRef.current) return null;
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return null;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(videoRef.current, 0, 0);
+      return canvas.toDataURL('image/png');
+    } catch (err) {
+      console.error('Error capturing frame:', err);
+      return null;
+    }
+  };
+
+  const detectPlant = async () => {
+    if (isProcessing) {
+      console.log('⏭️ Skipping request - previous one still processing');
+      return;
+    }
+    setIsProcessing(true);
+    const startTime = performance.now();
+    const currentRequestNumber = requestCount + 1;
+
+    try {
+      const base64Image = captureFrame();
+      if (!base64Image) {
+        setIsProcessing(false);
+        return;
+      }
+
+      const response = await fetch('/api/check-plant-live', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image }),
+      });
+
+      const endTime = performance.now();
+      const responseTime = Math.round(endTime - startTime);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setCameraError(errorData.error || 'Failed to check plant');
+      } else {
+        const data = await response.json();
+        setIsPlantDetected(data.isPlant);
+        setHasMultipleLeaves(data.hasMultipleLeaves);
+        setCameraError("");
+        setRequestCount(currentRequestNumber);
+        setLastResponseTime(responseTime);
+
+        let newStatus: 'no-leaf' | 'single-leaf' | 'multiple-leaves' | 'initializing';
+        if (!data.isPlant) {
+          newStatus = 'no-leaf';
+          setConsecutiveSingleLeafCount(0);
+        } else if (data.hasMultipleLeaves) {
+          newStatus = 'multiple-leaves';
+          setConsecutiveSingleLeafCount(0);
+        } else {
+          newStatus = 'single-leaf';
+          setConsecutiveSingleLeafCount(prev => {
+            const newCount = prev + 1;
+            console.log(`🍃 Single leaf detected! Consecutive count: ${newCount}/3`);
+            if (newCount >= 3) {
+              console.log('✅ 3 consecutive detections! Auto-analyzing...');
+              if (detectionIntervalRef.current) {
+                clearInterval(detectionIntervalRef.current);
+                detectionIntervalRef.current = null;
+              }
+              stopLiveMode();
+              setBase64String(base64Image);
+              setPreviewUrl(base64Image);
+              setShouldAutoAnalyze(true);
+              setDetectorMode('upload');
+              return 0;
+            }
+            return newCount;
+          });
+        }
+        setDetectionStatus(newStatus);
+      }
+    } catch (err) {
+      console.error('Error in detection:', err);
+      setCameraError(err instanceof Error ? err.message : 'Detection failed');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const startLiveMode = async () => {
+    try {
+      setCameraError("");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false
+      });
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+        setIsLiveMode(true);
+        await videoRef.current.play();
+        setRequestCount(0);
+        setIsPlantDetected(null);
+        setHasMultipleLeaves(false);
+        setConsecutiveSingleLeafCount(0);
+        setDetectionStatus('initializing');
+
+        setTimeout(() => {
+          detectPlant();
+          const interval = setInterval(() => detectPlant(), 1000);
+          detectionIntervalRef.current = interval;
+        }, 500);
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      setCameraError("Unable to access camera. Please ensure camera permissions are granted.");
+    }
+  };
+
+  const stopLiveMode = () => {
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsLiveMode(false);
+    setIsPlantDetected(null);
+    setHasMultipleLeaves(false);
+    setConsecutiveSingleLeafCount(0);
+    setDetectionStatus('initializing');
+    setIsProcessing(false);
+  };
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      if (detectionIntervalRef.current) clearInterval(detectionIntervalRef.current);
+      if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+    };
+  }, []);
+
   return (
     <div className="min-h-screen p-8 bg-background relative">
       {/* Completion Notification */}
@@ -1060,17 +1231,51 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
             showResults ? "lg:grid-cols-2" : "place-items-center"
           }`}
         >
-          {/* Upload Section */}
+          {/* Upload/Camera Section */}
           <div
             className={`w-full transition-all duration-500 ${
               !showResults ? "max-w-2xl" : ""
             }`}
           >
-            <Card>
+            <Card className="pt-0 overflow-hidden">
+              {/* Tab Switcher - Attached to top of card */}
+              <div className="border-b">
+                <div className="flex gap-0">
+                  <button
+                    onClick={() => {
+                      if (detectorMode === 'camera' && isLiveMode) stopLiveMode();
+                      setDetectorMode("upload");
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-3.5 transition-all duration-200 border-b-2 ${
+                      detectorMode === "upload"
+                        ? "border-primary bg-primary/5 text-foreground font-medium"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>Upload Image</span>
+                  </button>
+                  <button
+                    onClick={() => setDetectorMode("camera")}
+                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-3.5 transition-all duration-200 border-b-2 ${
+                      detectorMode === "camera"
+                        ? "border-primary bg-primary/5 text-foreground font-medium"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>Live Camera</span>
+                  </button>
+                </div>
+              </div>
+
               <CardHeader>
-                <CardTitle>Upload Mango Leaf Image</CardTitle>
+                <CardTitle>{detectorMode === "upload" ? "Upload Mango Leaf Image" : "Live Camera Feed"}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {detectorMode === "upload" ? (
+                  // Upload Mode Content
+                  <>
                 <div
                   className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
                     isDragging
@@ -1131,6 +1336,139 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
                 >
                   {isAnalyzing ? "Analyzing..." : "Analyze for Diseases"}
                 </Button>
+                </>
+                ) : (
+                  // Camera Mode Content
+                  <>
+                    {/* Video Display */}
+                    <div className="relative bg-muted rounded-lg overflow-hidden aspect-video">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className={`w-full h-full object-cover ${
+                          isLiveMode ? "block" : "hidden"
+                        }`}
+                      />
+                      {!isLiveMode && (
+                        <div className="absolute inset-0 flex items-center justify-center text-center p-8">
+                          <div>
+                            <Camera className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                            <p className="text-muted-foreground">
+                              Camera is not active. Click "Start Live Mode" to begin.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Error Message */}
+                    {cameraError && (
+                      <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded-lg text-sm">
+                        {cameraError}
+                      </div>
+                    )}
+
+                    {/* Control Buttons */}
+                    <div className="flex gap-4">
+                      {!isLiveMode ? (
+                        <Button onClick={startLiveMode} className="flex-1" size="lg">
+                          <Video className="w-5 h-5 mr-2" />
+                          Start Live Mode
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={stopLiveMode}
+                          variant="destructive"
+                          className="flex-1"
+                          size="lg"
+                        >
+                          <VideoOff className="w-5 h-5 mr-2" />
+                          Stop Live Mode
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Status Banner */}
+                    {isLiveMode && (
+                      <div
+                        className={`p-4 rounded-lg border-2 text-center ${
+                          detectionStatus === "initializing"
+                            ? "bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700"
+                            : detectionStatus === "no-leaf"
+                            ? "bg-red-50 dark:bg-red-950/20 border-red-300 dark:border-red-900"
+                            : detectionStatus === "multiple-leaves"
+                            ? "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-400 dark:border-yellow-900"
+                            : "bg-green-50 dark:bg-green-950/20 border-green-400 dark:border-green-900"
+                        }`}
+                      >
+                        <div
+                          className={`text-lg font-bold mb-1 ${
+                            detectionStatus === "initializing"
+                              ? "text-gray-600 dark:text-gray-400"
+                              : detectionStatus === "no-leaf"
+                              ? "text-red-600 dark:text-red-400"
+                              : detectionStatus === "multiple-leaves"
+                              ? "text-yellow-700 dark:text-yellow-400"
+                              : "text-green-600 dark:text-green-400"
+                          }`}
+                        >
+                          {detectionStatus === "initializing" && "⏳ Initializing..."}
+                          {detectionStatus === "no-leaf" && "❌ No Leaf Detected"}
+                          {detectionStatus === "multiple-leaves" &&
+                            "⚠️ Multiple Leaves Detected"}
+                          {detectionStatus === "single-leaf" && "✅ Leaf Detected"}
+                        </div>
+                        {detectionStatus === "single-leaf" &&
+                          consecutiveSingleLeafCount > 0 && (
+                            <div className="text-sm text-green-700 dark:text-green-300 font-semibold">
+                              {consecutiveSingleLeafCount}/3 -{" "}
+                              {3 - consecutiveSingleLeafCount} more to analyze
+                            </div>
+                          )}
+                        {detectionStatus === "multiple-leaves" && (
+                          <div className="text-xs text-yellow-700 dark:text-yellow-300">
+                            Please focus on a single leaf
+                          </div>
+                        )}
+                        {detectionStatus === "no-leaf" && (
+                          <div className="text-xs text-red-700 dark:text-red-300">
+                            Point camera at a mango leaf
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Live Detection Stats */}
+                    {isLiveMode && (
+                      <div className="p-4 bg-muted rounded-lg space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Requests Sent:</span>
+                          <span className="font-semibold">{requestCount}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            Last Response Time:
+                          </span>
+                          <span className="font-semibold">{lastResponseTime}ms</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Processing:</span>
+                          <span
+                            className={`font-semibold ${
+                              isProcessing
+                                ? "text-blue-600"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {isProcessing ? "⚡ Active" : "Idle"}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -1184,637 +1522,22 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
 
           {/* Results Section */}
           {showResults && (
-            <Card className="animate-in slide-in-from-right duration-500">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  Analysis Results
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Error Display (if any) */}
-                {apiResults?.error && (
-                  <div className="bg-destructive/10 border border-destructive rounded-md p-3 space-y-2">
-                    <p className="font-semibold text-destructive flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4" />
-                      {apiResults.error}
-                    </p>
-                    {apiResults.details && (
-                      <p className="text-xs text-muted-foreground">
-                        {apiResults.details}
-                      </p>
-                    )}
-                    {apiResults.instructions && (
-                      <div className="mt-2 p-2 bg-background rounded text-xs">
-                        <p className="font-semibold mb-1">To fix this:</p>
-                        <code className="text-primary">
-                          {apiResults.instructions}
-                        </code>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Plant Type */}
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                    Plant Type
-                  </h3>
-                  <p className="text-lg font-semibold">Mango</p>
-                </div>
-
-                {/* Disease Detected / Health Status */}
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                    {apiResults?.prediction?.disease?.toLowerCase() ===
-                    "healthy"
-                      ? "Health Status"
-                      : "Disease Detected"}
-                  </h3>
-                  {apiResults?.prediction && (
-                    <>
-                      <p
-                        className={`text-lg font-semibold flex items-center gap-2 ${
-                          apiResults.prediction.disease.toLowerCase() ===
-                          "healthy"
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-red-600 dark:text-red-400"
-                        }`}
-                      >
-                        {apiResults.prediction.disease.toLowerCase() ===
-                        "healthy" ? (
-                          <CheckCircle2 className="w-5 h-5" />
-                        ) : (
-                          <AlertCircle className="w-5 h-5" />
-                        )}
-                        {apiResults.prediction.disease}
-                      </p>
-                      <div className="mt-3">
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span>Confidence</span>
-                          <span className="font-semibold">
-                            {apiResults.prediction.confidence_percentage?.toFixed(
-                              2
-                            )}
-                            %
-                          </span>
-                        </div>
-                        <Progress
-                          value={apiResults.prediction.confidence_percentage}
-                          className="h-2"
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Accordion for all sections */}
-                <Accordion type="multiple" className="w-full" defaultValue={["description", "symptoms", "treatment", "prevention"]}>
-                  {/* Pesticides Glossary - Show on top ONLY if NOT healthy */}
-                  {extractedTerms.filter(t => t.category === 'pesticide').length > 0 && 
-                   apiResults?.prediction?.disease?.toLowerCase() !== 'healthy' && (
-                    <AccordionItem value="pesticides-glossary" className="border-l-4 border-l-red-500">
-                      <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-red-700 dark:text-red-400">Pesticides</span>
-                          <span className="text-xs font-normal text-muted-foreground">
-                            ({extractedTerms.filter(t => t.category === 'pesticide').length} term{extractedTerms.filter(t => t.category === 'pesticide').length !== 1 ? 's' : ''})
-                          </span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="bg-red-50 dark:bg-red-950/20 p-4 rounded-lg border border-red-200 dark:border-red-900 ml-4">
-                          <Accordion type="multiple" className="w-full">
-                            {extractedTerms
-                              .filter(t => t.category === 'pesticide')
-                              .map((term, idx) => (
-                                <AccordionItem key={idx} value={`pesticide-${idx}`} className="border-b-red-200 dark:border-b-red-900">
-                                  <AccordionTrigger className="text-sm font-medium text-red-700 dark:text-red-400 hover:no-underline py-2">
-                                    {term.term}
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="space-y-2 pl-4">
-                                      <div>
-                                        <p className="text-xs font-semibold text-foreground mb-1">Definition:</p>
-                                        <p className="text-xs text-muted-foreground">{term.definition}</p>
-                                      </div>
-                                      {term.usage && (
-                                        <div>
-                                          <p className="text-xs font-semibold text-foreground mb-1">How to use:</p>
-                                          <p className="text-xs text-muted-foreground">{term.usage}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
-                          </Accordion>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )}
-
-                  {/* Fungicides Glossary - Show on top ONLY if NOT healthy */}
-                  {extractedTerms.filter(t => t.category === 'fungicide').length > 0 && 
-                   apiResults?.prediction?.disease?.toLowerCase() !== 'healthy' && (
-                    <AccordionItem value="fungicides-glossary-top" className="border-l-4 border-l-orange-500">
-                      <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-orange-700 dark:text-orange-400">Fungicides</span>
-                          <span className="text-xs font-normal text-muted-foreground">
-                            ({extractedTerms.filter(t => t.category === 'fungicide').length} term{extractedTerms.filter(t => t.category === 'fungicide').length !== 1 ? 's' : ''})
-                          </span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-lg border border-orange-200 dark:border-orange-900 ml-4">
-                          <Accordion type="multiple" className="w-full">
-                            {extractedTerms
-                              .filter(t => t.category === 'fungicide')
-                              .map((term, idx) => (
-                                <AccordionItem key={idx} value={`fungicide-top-${idx}`} className="border-b-orange-200 dark:border-b-orange-900">
-                                  <AccordionTrigger className="text-sm font-medium text-orange-700 dark:text-orange-400 hover:no-underline py-2">
-                                    {term.term}
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="space-y-2 pl-4">
-                                      <div>
-                                        <p className="text-xs font-semibold text-foreground mb-1">Definition:</p>
-                                        <p className="text-xs text-muted-foreground">{term.definition}</p>
-                                      </div>
-                                      {term.usage && (
-                                        <div>
-                                          <p className="text-xs font-semibold text-foreground mb-1">How to use:</p>
-                                          <p className="text-xs text-muted-foreground">{term.usage}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
-                          </Accordion>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )}
-
-                  {/* Description */}
-                  <AccordionItem value="description">
-                    <AccordionTrigger className="text-base font-semibold hover:no-underline">
-                      {apiResults?.prediction?.disease?.toLowerCase() ===
-                      "healthy"
-                        ? "Health Overview"
-                        : "Description"}
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
-                        <div>
-                          <h4 className="text-sm font-bold text-foreground mb-2">
-                            {apiResults?.prediction?.disease?.toLowerCase() ===
-                            "healthy"
-                              ? "What does a healthy mango plant look like?"
-                              : `What is ${
-                                  apiResults?.prediction?.disease || "this disease"
-                                }?`}
-                          </h4>
-                          {loadingInfo ? (
-                            <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
-                              ✨ Generating...
-                            </p>
-                          ) : (
-                            <HighlightedText
-                              content={diseaseInfo || "Information about this disease will be displayed here."}
-                              terms={extractedTerms}
-                              className="text-sm text-foreground leading-relaxed"
-                            />
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-foreground mb-2">
-                            {apiResults?.prediction?.disease?.toLowerCase() ===
-                            "healthy"
-                              ? "Factors contributing to plant health:"
-                              : `Typical causes for ${
-                                  apiResults?.prediction?.disease || "this disease"
-                                } are:`}
-                          </h4>
-                          {loadingCauses ? (
-                            <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
-                              ✨ Generating...
-                            </p>
-                          ) : (
-                            <HighlightedText
-                              content={diseaseCauses || "Causes and conditions that lead to this disease will be displayed here."}
-                              terms={extractedTerms}
-                              className="text-sm text-foreground leading-relaxed"
-                            />
-                          )}
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  {/* Key Symptoms to Check / Health Indicators */}
-                  <AccordionItem value="symptoms">
-                    <AccordionTrigger className="text-base font-semibold hover:no-underline">
-                      {apiResults?.prediction?.disease?.toLowerCase() ===
-                      "healthy"
-                        ? "Signs of a Healthy Plant"
-                        : "Key Symptoms to Check"}
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="bg-muted/30 p-4 rounded-lg border">
-                        {loadingSymptoms ? (
-                          <p className="text-sm text-muted-foreground animate-pulse">
-                            ✨ Generating...
-                          </p>
-                        ) : (
-                          <HighlightedText
-                            content={diseaseSymptoms || "Key symptoms and visual indicators will be displayed here."}
-                            terms={extractedTerms}
-                            className="text-sm text-foreground leading-relaxed"
-                          />
-                        )}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  {/* Recommended Treatment Plan / Maintenance Plan */}
-                  <AccordionItem value="treatment">
-                    <AccordionTrigger className="text-base font-semibold hover:no-underline">
-                      {apiResults?.prediction?.disease?.toLowerCase() ===
-                      "healthy"
-                        ? "Recommended Maintenance Plan"
-                        : "Recommended Treatment Plan"}
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div
-                        className={
-                          apiResults?.prediction?.disease?.toLowerCase() ===
-                          "healthy"
-                            ? "bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900"
-                            : "bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-900"
-                        }
-                      >
-                        {loadingTreatment ? (
-                          <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
-                            ✨ Generating...
-                          </p>
-                        ) : (
-                          <HighlightedText
-                            content={diseaseTreatment || "Treatment recommendations and protocols will be displayed here."}
-                            terms={extractedTerms}
-                            className={`text-sm leading-relaxed ${
-                              apiResults?.prediction?.disease?.toLowerCase() ===
-                              "healthy"
-                                ? "text-foreground dark:text-green-100"
-                                : "text-foreground dark:text-blue-100"
-                            }`}
-                          />
-                        )}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  {/* Preventive Measures / Best Practices */}
-                  <AccordionItem value="prevention">
-                    <AccordionTrigger className="text-base font-semibold hover:no-underline">
-                      {apiResults?.prediction?.disease?.toLowerCase() ===
-                      "healthy"
-                        ? "Best Practices to Stay Healthy"
-                        : "Preventive Measures"}
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900">
-                        {loadingPrevention ? (
-                          <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
-                            ✨ Generating...
-                          </p>
-                        ) : (
-                          <HighlightedText
-                            content={diseasePrevention || "Preventive measures and best practices will be displayed here."}
-                            terms={extractedTerms}
-                            className="text-sm text-foreground dark:text-green-100 leading-relaxed"
-                          />
-                        )}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  {/* Alternative Possibilities (only if confidence < 80%) */}
-                  {apiResults?.prediction &&
-                    apiResults.prediction.confidence_percentage < 80 && (
-                      <AccordionItem value="alternatives">
-                        <AccordionTrigger className="text-base font-semibold hover:no-underline">
-                          Alternative Possibilities
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-900">
-                            {loadingAlternatives ? (
-                              <p className="text-sm text-muted-foreground animate-pulse">
-                                ✨ Generating alternative diagnosis analysis...
-                              </p>
-                            ) : (
-                              <HighlightedText
-                                content={diseaseAlternatives || "Alternative diagnosis information will be displayed here."}
-                                terms={extractedTerms}
-                                className="text-sm text-foreground dark:text-yellow-100 leading-relaxed"
-                              />
-                            )}
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    )}
-                </Accordion>
-
-                {/* Recommendations Section Heading */}
-                {(extractedTerms.filter(t => ['treatment', 'nutrient', 'practice', 'condition'].includes(t.category)).length > 0 || 
-                  (apiResults?.prediction?.disease?.toLowerCase() === 'healthy' && extractedTerms.filter(t => ['pesticide', 'fungicide'].includes(t.category)).length > 0)) && (
-                  <div className="mt-8 mb-4">
-                    <h3 className="text-lg font-bold text-foreground">Recommendations</h3>
-                  </div>
-                )}
-
-                {/* Recommendations Accordion */}
-                <Accordion type="multiple" className="w-full">
-                  {/* Pesticides Glossary - In Recommendations when Healthy */}
-                  {extractedTerms.filter(t => t.category === 'pesticide').length > 0 && apiResults?.prediction?.disease?.toLowerCase() === 'healthy' && (
-                    <AccordionItem value="pesticides-glossary-rec" className="border-l-4 border-l-red-500">
-                      <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-red-700 dark:text-red-400">Pesticides</span>
-                          <span className="text-xs font-normal text-muted-foreground">
-                            ({extractedTerms.filter(t => t.category === 'pesticide').length} term{extractedTerms.filter(t => t.category === 'pesticide').length !== 1 ? 's' : ''})
-                          </span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="bg-red-50 dark:bg-red-950/20 p-4 rounded-lg border border-red-200 dark:border-red-900 ml-4">
-                          <Accordion type="multiple" className="w-full">
-                            {extractedTerms
-                              .filter(t => t.category === 'pesticide')
-                              .map((term, idx) => (
-                                <AccordionItem key={idx} value={`pesticide-rec-${idx}`} className="border-b-red-200 dark:border-b-red-900">
-                                  <AccordionTrigger className="text-sm font-medium text-red-700 dark:text-red-400 hover:no-underline py-2">
-                                    {term.term}
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="space-y-2 pl-4">
-                                      <div>
-                                        <p className="text-xs font-semibold text-foreground mb-1">Definition:</p>
-                                        <p className="text-xs text-muted-foreground">{term.definition}</p>
-                                      </div>
-                                      {term.usage && (
-                                        <div>
-                                          <p className="text-xs font-semibold text-foreground mb-1">How to use:</p>
-                                          <p className="text-xs text-muted-foreground">{term.usage}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
-                          </Accordion>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )}
-
-                  {/* Fungicides Glossary - In Recommendations when Healthy */}
-                  {extractedTerms.filter(t => t.category === 'fungicide').length > 0 && apiResults?.prediction?.disease?.toLowerCase() === 'healthy' && (
-                    <AccordionItem value="fungicides-glossary-rec" className="border-l-4 border-l-orange-500">
-                      <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-orange-700 dark:text-orange-400">Fungicides</span>
-                          <span className="text-xs font-normal text-muted-foreground">
-                            ({extractedTerms.filter(t => t.category === 'fungicide').length} term{extractedTerms.filter(t => t.category === 'fungicide').length !== 1 ? 's' : ''})
-                          </span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-lg border border-orange-200 dark:border-orange-900 ml-4">
-                          <Accordion type="multiple" className="w-full">
-                            {extractedTerms
-                              .filter(t => t.category === 'fungicide')
-                              .map((term, idx) => (
-                                <AccordionItem key={idx} value={`fungicide-rec-${idx}`} className="border-b-orange-200 dark:border-b-orange-900">
-                                  <AccordionTrigger className="text-sm font-medium text-orange-700 dark:text-orange-400 hover:no-underline py-2">
-                                    {term.term}
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="space-y-2 pl-4">
-                                      <div>
-                                        <p className="text-xs font-semibold text-foreground mb-1">Definition:</p>
-                                        <p className="text-xs text-muted-foreground">{term.definition}</p>
-                                      </div>
-                                      {term.usage && (
-                                        <div>
-                                          <p className="text-xs font-semibold text-foreground mb-1">How to use:</p>
-                                          <p className="text-xs text-muted-foreground">{term.usage}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
-                          </Accordion>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )}
-
-                  {/* Treatments Glossary - At the bottom */}
-                  {extractedTerms.filter(t => t.category === 'treatment').length > 0 && (
-                    <AccordionItem value="treatments-glossary" className="border-l-4 border-l-blue-500">
-                      <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-blue-700 dark:text-blue-400">Treatments</span>
-                          <span className="text-xs font-normal text-muted-foreground">
-                            ({extractedTerms.filter(t => t.category === 'treatment').length} term{extractedTerms.filter(t => t.category === 'treatment').length !== 1 ? 's' : ''})
-                          </span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-900 ml-4">
-                          <Accordion type="multiple" className="w-full">
-                            {extractedTerms
-                              .filter(t => t.category === 'treatment')
-                              .map((term, idx) => (
-                                <AccordionItem key={idx} value={`treatment-${idx}`} className="border-b-blue-200 dark:border-b-blue-900">
-                                  <AccordionTrigger className="text-sm font-medium text-blue-700 dark:text-blue-400 hover:no-underline py-2">
-                                    {term.term}
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="space-y-2 pl-4">
-                                      <div>
-                                        <p className="text-xs font-semibold text-foreground mb-1">Definition:</p>
-                                        <p className="text-xs text-muted-foreground">{term.definition}</p>
-                                      </div>
-                                      {term.usage && (
-                                        <div>
-                                          <p className="text-xs font-semibold text-foreground mb-1">How to use:</p>
-                                          <p className="text-xs text-muted-foreground">{term.usage}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
-                          </Accordion>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )}
-
-                  {/* Nutrients Glossary */}
-                  {extractedTerms.filter(t => t.category === 'nutrient').length > 0 && (
-                    <AccordionItem value="nutrients-glossary" className="border-l-4 border-l-green-500">
-                      <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-green-700 dark:text-green-400">Nutrients</span>
-                          <span className="text-xs font-normal text-muted-foreground">
-                            ({extractedTerms.filter(t => t.category === 'nutrient').length} term{extractedTerms.filter(t => t.category === 'nutrient').length !== 1 ? 's' : ''})
-                          </span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900 ml-4">
-                          <Accordion type="multiple" className="w-full">
-                            {extractedTerms
-                              .filter(t => t.category === 'nutrient')
-                              .map((term, idx) => (
-                                <AccordionItem key={idx} value={`nutrient-${idx}`} className="border-b-green-200 dark:border-b-green-900">
-                                  <AccordionTrigger className="text-sm font-medium text-green-700 dark:text-green-400 hover:no-underline py-2">
-                                    {term.term}
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="space-y-2 pl-4">
-                                      <div>
-                                        <p className="text-xs font-semibold text-foreground mb-1">Definition:</p>
-                                        <p className="text-xs text-muted-foreground">{term.definition}</p>
-                                      </div>
-                                      {term.usage && (
-                                        <div>
-                                          <p className="text-xs font-semibold text-foreground mb-1">How to use:</p>
-                                          <p className="text-xs text-muted-foreground">{term.usage}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
-                          </Accordion>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )}
-
-                  {/* Practices Glossary */}
-                  {extractedTerms.filter(t => t.category === 'practice').length > 0 && (
-                    <AccordionItem value="practices-glossary" className="border-l-4 border-l-purple-500">
-                      <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-purple-700 dark:text-purple-400">Practices</span>
-                          <span className="text-xs font-normal text-muted-foreground">
-                            ({extractedTerms.filter(t => t.category === 'practice').length} term{extractedTerms.filter(t => t.category === 'practice').length !== 1 ? 's' : ''})
-                          </span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="bg-purple-50 dark:bg-purple-950/20 p-4 rounded-lg border border-purple-200 dark:border-purple-900 ml-4">
-                          <Accordion type="multiple" className="w-full">
-                            {extractedTerms
-                              .filter(t => t.category === 'practice')
-                              .map((term, idx) => (
-                                <AccordionItem key={idx} value={`practice-${idx}`} className="border-b-purple-200 dark:border-b-purple-900">
-                                  <AccordionTrigger className="text-sm font-medium text-purple-700 dark:text-purple-400 hover:no-underline py-2">
-                                    {term.term}
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="space-y-2 pl-4">
-                                      <div>
-                                        <p className="text-xs font-semibold text-foreground mb-1">Definition:</p>
-                                        <p className="text-xs text-muted-foreground">{term.definition}</p>
-                                      </div>
-                                      {term.usage && (
-                                        <div>
-                                          <p className="text-xs font-semibold text-foreground mb-1">How to use:</p>
-                                          <p className="text-xs text-muted-foreground">{term.usage}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
-                          </Accordion>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )}
-
-                  {/* Conditions Glossary */}
-                  {extractedTerms.filter(t => t.category === 'condition').length > 0 && (
-                    <AccordionItem value="conditions-glossary" className="border-l-4 border-l-gray-500">
-                      <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-700 dark:text-gray-400">Conditions</span>
-                          <span className="text-xs font-normal text-muted-foreground">
-                            ({extractedTerms.filter(t => t.category === 'condition').length} term{extractedTerms.filter(t => t.category === 'condition').length !== 1 ? 's' : ''})
-                          </span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="bg-gray-50 dark:bg-gray-800/20 p-4 rounded-lg border border-gray-200 dark:border-gray-700 ml-4">
-                          <Accordion type="multiple" className="w-full">
-                            {extractedTerms
-                              .filter(t => t.category === 'condition')
-                              .map((term, idx) => (
-                                <AccordionItem key={idx} value={`condition-${idx}`} className="border-b-gray-200 dark:border-b-gray-700">
-                                  <AccordionTrigger className="text-sm font-medium text-gray-700 dark:text-gray-400 hover:no-underline py-2">
-                                    {term.term}
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="space-y-2 pl-4">
-                                      <div>
-                                        <p className="text-xs font-semibold text-foreground mb-1">Definition:</p>
-                                        <p className="text-xs text-muted-foreground">{term.definition}</p>
-                                      </div>
-                                      {term.usage && (
-                                        <div>
-                                          <p className="text-xs font-semibold text-foreground mb-1">How to use:</p>
-                                          <p className="text-xs text-muted-foreground">{term.usage}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
-                          </Accordion>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )}
-                </Accordion>
-
-                {/* Important Disclaimer */}
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                    Important Disclaimer
-                  </h3>
-                  <div className="bg-muted/50 p-4 rounded-lg border border-muted-foreground/20">
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      This AI-powered diagnosis is provided for informational
-                      purposes only and should not replace professional
-                      agricultural advice. For accurate diagnosis and treatment
-                      recommendations, please consult with a certified plant
-                      pathologist or agricultural extension service. The
-                      accuracy of results depends on image quality and may vary
-                      based on disease stage and environmental conditions.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <AnalysisResults
+              apiResults={apiResults}
+              diseaseInfo={diseaseInfo}
+              diseaseCauses={diseaseCauses}
+              diseaseSymptoms={diseaseSymptoms}
+              diseaseTreatment={diseaseTreatment}
+              diseasePrevention={diseasePrevention}
+              diseaseAlternatives={diseaseAlternatives}
+              loadingInfo={loadingInfo}
+              loadingCauses={loadingCauses}
+              loadingSymptoms={loadingSymptoms}
+              loadingTreatment={loadingTreatment}
+              loadingPrevention={loadingPrevention}
+              loadingAlternatives={loadingAlternatives}
+              extractedTerms={extractedTerms}
+            />
           )}
         </div>
       </div>
