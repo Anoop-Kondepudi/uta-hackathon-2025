@@ -106,6 +106,13 @@ export default function Planner() {
     fetchWeatherData()
   }, [])
 
+  // Auto-generate schedules after weather data is loaded
+  React.useEffect(() => {
+    if (weatherData && !twoWeekSchedule && !annualPlan && !isGeneratingTwoWeek && !isGeneratingAnnual) {
+      generateAllSchedules()
+    }
+  }, [weatherData])
+
   // Get weather icon based on weather code
   const getWeatherIcon = (weatherCode: number, size: number = 16) => {
     const iconProps = { size, className: "mx-auto" }
@@ -546,34 +553,6 @@ export default function Planner() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Generate Schedule Button */}
-        {!twoWeekSchedule && !annualPlan && (
-          <Card className="shadow-lg mt-6">
-            <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
-              <Button 
-                size="lg" 
-                className="gap-2"
-                onClick={generateAllSchedules}
-                disabled={(isGeneratingTwoWeek || isGeneratingAnnual) || !weatherData}
-              >
-                {(isGeneratingTwoWeek || isGeneratingAnnual) ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span className="text-lg">Generating AI Schedule...</span>
-                  </>
-                ) : (
-                  <span className="text-lg">🤖 Generate Schedule with AI</span>
-                )}
-              </Button>
-              {!weatherData && (
-                <p className="text-sm text-muted-foreground">
-                  Fetch weather data first to generate schedule
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
 
         {/* Schedule Box */}
         {(twoWeekSchedule || annualPlan) && (

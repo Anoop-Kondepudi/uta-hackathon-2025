@@ -65,7 +65,7 @@ html {
   --card-foreground: #083a19;
   --popover: #ffffff;
   --popover-foreground: #083a19;
-  --primary: #2a9d34; /* green */
+  --primary: #ff8c42; /* orange - better visibility for selections */
   --primary-foreground: #ffffff;
   --secondary: #ffd9b3; /* soft orange */
   --secondary-foreground: #5a2d00;
@@ -100,8 +100,8 @@ html {
   --card-foreground: #e7fbe9;
   --popover: #0b2a10;
   --popover-foreground: #e7fbe9;
-  --primary: #2a9d34;
-  --primary-foreground: #e7fbe9;
+  --primary: #ff8c42; /* orange - better visibility for selections */
+  --primary-foreground: #ffffff;
   --secondary: #cc6a2e; /* darker orange */
   --secondary-foreground: #fff7ef;
   --muted: #0f2916;
