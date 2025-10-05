@@ -12,13 +12,18 @@ export default function LiveMangoPage() {
   const [isDescribing, setIsDescribing] = useState(false);
   const [description, setDescription] = useState<string>("");
   const [isPlantDetected, setIsPlantDetected] = useState<boolean | null>(null);
+  const [hasMultipleLeaves, setHasMultipleLeaves] = useState<boolean>(false);
   const [requestCount, setRequestCount] = useState(0);
   const [lastResponseTime, setLastResponseTime] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  const [consecutiveSingleLeafCount, setConsecutiveSingleLeafCount] = useState(0);
+  const [detectionStatus, setDetectionStatus] = useState<'no-leaf' | 'single-leaf' | 'multiple-leaves' | 'initializing'>('initializing');
+  const [capturedImageForAnalysis, setCapturedImageForAnalysis] = useState<string | null>(null);
   const [apiLogs, setApiLogs] = useState<Array<{
     timestamp: string;
     isPlant: boolean;
+    hasMultipleLeaves: boolean;
     responseTime: number;
     requestNumber: number;
   }>>([]);
@@ -37,17 +42,23 @@ export default function LiveMangoPage() {
       const canvas = document.createElement('canvas');
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       
       if (!ctx) {
         return null;
       }
 
+      // Fill with white background first to ensure no transparency issues
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
       // Draw the current video frame onto the canvas
       ctx.drawImage(videoRef.current, 0, 0);
 
-      // Convert canvas to base64 image
-      return canvas.toDataURL('image/jpeg', 0.8); // Use JPEG with 80% quality for faster processing
+      // Convert canvas to base64 image with higher quality
+      // Use PNG for live detection (smaller size, lossless)
+      // Use maximum quality JPEG for final capture that goes to detector
+      return canvas.toDataURL('image/png');
     } catch (err) {
       console.error('Error capturing frame:', err);
       return null;
@@ -65,6 +76,7 @@ export default function LiveMangoPage() {
     const currentRequestNumber = requestCount + 1;
 
     try {
+      // Capture the frame BEFORE sending to API - this is the image we'll use
       const base64Image = captureFrame();
       
       if (!base64Image) {
@@ -94,16 +106,64 @@ export default function LiveMangoPage() {
       } else {
         const data = await response.json();
         setIsPlantDetected(data.isPlant);
+        setHasMultipleLeaves(data.hasMultipleLeaves);
         setError(""); // Clear any previous errors
         
         // Update stats
         setRequestCount(currentRequestNumber);
         setLastResponseTime(responseTime);
         
+        // Determine detection status and handle consecutive single-leaf detection
+        let newStatus: 'no-leaf' | 'single-leaf' | 'multiple-leaves' | 'initializing';
+        
+        if (!data.isPlant) {
+          newStatus = 'no-leaf';
+          setConsecutiveSingleLeafCount(0); // Reset counter
+        } else if (data.hasMultipleLeaves) {
+          newStatus = 'multiple-leaves';
+          setConsecutiveSingleLeafCount(0); // Reset counter
+        } else {
+          // Single leaf detected!
+          newStatus = 'single-leaf';
+          
+          // Store the current API call's image for potential use
+          setCapturedImageForAnalysis(base64Image);
+          
+          setConsecutiveSingleLeafCount(prev => {
+            const newCount = prev + 1;
+            console.log(`🍃 Single leaf detected! Consecutive count: ${newCount}/3`);
+            
+            // If we hit 3 consecutive single-leaf detections, redirect to detector
+            if (newCount >= 3) {
+              console.log('✅ 3 consecutive single-leaf detections! Redirecting to detector...');
+              console.log('📸 Using PNG image from the THIRD valid API call (not capturing new)');
+              
+              // Stop live mode
+              if (detectionIntervalRef.current) {
+                clearInterval(detectionIntervalRef.current);
+                detectionIntervalRef.current = null;
+              }
+              
+              // Use the PNG image directly from this (the third) API call
+              // No conversion needed - keep it as PNG for disease detection API
+              sessionStorage.setItem('capturedImage', base64Image);
+              console.log('✅ Stored PNG image from third detection, redirecting...');
+              window.location.href = '/detector';
+              
+              return 0; // Reset counter
+            }
+            
+            return newCount;
+          });
+        }
+        
+        setDetectionStatus(newStatus);
+        
         // Add to logs (keep only last 3)
         const newLog = {
           timestamp: new Date().toLocaleTimeString(),
           isPlant: data.isPlant,
+          hasMultipleLeaves: data.hasMultipleLeaves,
           responseTime: responseTime,
           requestNumber: currentRequestNumber
         };
@@ -113,7 +173,7 @@ export default function LiveMangoPage() {
           return updatedLogs.slice(0, 3); // Keep only last 3
         });
         
-        console.log(`✅ Request #${currentRequestNumber} completed in ${responseTime}ms - Plant: ${data.isPlant}`);
+        console.log(`✅ Request #${currentRequestNumber} completed in ${responseTime}ms - Status: ${newStatus}`);
       }
     } catch (err) {
       console.error('Error in detection:', err);
@@ -147,6 +207,9 @@ export default function LiveMangoPage() {
           // Reset states
           setRequestCount(0);
           setIsPlantDetected(null);
+          setHasMultipleLeaves(false);
+          setConsecutiveSingleLeafCount(0);
+          setDetectionStatus('initializing');
           setApiLogs([]);
           
           // Wait a moment for video to be ready, then start detection interval
@@ -190,6 +253,9 @@ export default function LiveMangoPage() {
     }
     setIsLiveMode(false);
     setIsPlantDetected(null);
+    setHasMultipleLeaves(false);
+    setConsecutiveSingleLeafCount(0);
+    setDetectionStatus('initializing');
     setIsProcessing(false);
     console.log(`🛑 Live mode stopped. Total requests: ${requestCount}`);
   };
@@ -327,6 +393,14 @@ export default function LiveMangoPage() {
                               {log.isPlant ? '✓ Yes' : '✗ No'}
                             </span>
                           </div>
+                          {log.isPlant && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span>Multiple Leaves:</span>
+                              <span className={`font-semibold ${log.hasMultipleLeaves ? 'text-yellow-600' : 'text-green-600'}`}>
+                                {log.hasMultipleLeaves ? '⚠️ Yes' : '✓ No'}
+                              </span>
+                            </div>
+                          )}
                           <div className="flex items-center justify-between text-xs">
                             <span>Response Time:</span>
                             <span className="font-semibold">{log.responseTime}ms</span>
@@ -413,6 +487,43 @@ export default function LiveMangoPage() {
                   )}
                 </div>
 
+                {/* User-Friendly Status Banner */}
+                {isLiveMode && (
+                  <div className={`p-4 rounded-lg border-2 text-center ${
+                    detectionStatus === 'initializing' ? 'bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700' :
+                    detectionStatus === 'no-leaf' ? 'bg-red-50 dark:bg-red-950/20 border-red-300 dark:border-red-900' :
+                    detectionStatus === 'multiple-leaves' ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-400 dark:border-yellow-900' :
+                    'bg-green-50 dark:bg-green-950/20 border-green-400 dark:border-green-900'
+                  }`}>
+                    <div className={`text-lg font-bold mb-1 ${
+                      detectionStatus === 'initializing' ? 'text-gray-600 dark:text-gray-400' :
+                      detectionStatus === 'no-leaf' ? 'text-red-600 dark:text-red-400' :
+                      detectionStatus === 'multiple-leaves' ? 'text-yellow-700 dark:text-yellow-400' :
+                      'text-green-600 dark:text-green-400'
+                    }`}>
+                      {detectionStatus === 'initializing' && '⏳ Initializing...'}
+                      {detectionStatus === 'no-leaf' && '❌ No Leaf Detected'}
+                      {detectionStatus === 'multiple-leaves' && '⚠️ Multiple Leaves Detected'}
+                      {detectionStatus === 'single-leaf' && '✅ Leaf Detected'}
+                    </div>
+                    {detectionStatus === 'single-leaf' && consecutiveSingleLeafCount > 0 && (
+                      <div className="text-sm text-green-700 dark:text-green-300 font-semibold">
+                        {consecutiveSingleLeafCount}/3 - {3 - consecutiveSingleLeafCount} more to analyze
+                      </div>
+                    )}
+                    {detectionStatus === 'multiple-leaves' && (
+                      <div className="text-xs text-yellow-700 dark:text-yellow-300">
+                        Please focus on a single leaf
+                      </div>
+                    )}
+                    {detectionStatus === 'no-leaf' && (
+                      <div className="text-xs text-red-700 dark:text-red-300">
+                        Point camera at a mango leaf
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Status Indicator */}
                 <div className="flex items-center justify-center gap-2 text-sm">
                   <div
@@ -428,16 +539,6 @@ export default function LiveMangoPage() {
                 {/* Live Detection Stats */}
                 {isLiveMode && (
                   <div className="mt-4 p-4 bg-muted rounded-lg space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Detection Status:</span>
-                      <span className={`font-semibold ${
-                        isPlantDetected === null ? 'text-muted-foreground' :
-                        isPlantDetected ? 'text-green-600' : 'text-orange-600'
-                      }`}>
-                        {isPlantDetected === null ? 'Initializing...' :
-                         isPlantDetected ? '✓ Plant Detected' : '✗ No Plant'}
-                      </span>
-                    </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Requests Sent:</span>
                       <span className="font-semibold">{requestCount}</span>

@@ -38,16 +38,20 @@ export async function POST(request: NextRequest) {
     };
 
     // Create a strict prompt for plant/leaf detection
-    const prompt = `Analyze this image and determine if it shows a plant leaf (specifically, it could be a mango tree leaf or any plant leaf).
+    const prompt = `Analyze this image and determine:
+1. If it shows a plant leaf (specifically, it could be a mango tree leaf or any plant leaf)
+2. If there are multiple leaves visible (more than one leaf taking up significant space in the image)
 
 IMPORTANT: You MUST respond with ONLY valid JSON in this exact format, nothing else:
-{"isPlant": true} or {"isPlant": false}
+{"isPlant": true, "hasMultipleLeaves": false}
 
 Rules:
-- If the image shows ANY type of plant leaf, botanical specimen, or vegetation: return {"isPlant": true}
-- If the image shows something else (person, animal, object, building, etc.): return {"isPlant": false}
+- isPlant: If the image shows ANY type of plant leaf, botanical specimen, or vegetation: true, otherwise false
+- hasMultipleLeaves: If there are 2 or more distinct leaves visible in the image (not just one main leaf): true, otherwise false
+- The main focus should ideally be 1 single leaf - if multiple leaves are prominent, set hasMultipleLeaves to true
 - Do not include any other text, explanation, or markdown formatting
-- Only return the JSON object`;
+- Only return the JSON object with both fields`;
+
 
     // Generate response
     const result = await model.generateContent([prompt, imagePart]);
@@ -67,17 +71,22 @@ Rules:
       // If parsing fails, try to detect true/false in the response
       const lowerText = text.toLowerCase();
       parsedResponse = {
-        isPlant: lowerText.includes('true') || lowerText.includes('"isplant": true')
+        isPlant: lowerText.includes('true') || lowerText.includes('"isplant": true'),
+        hasMultipleLeaves: lowerText.includes('"hasmultipleleaves": true')
       };
     }
 
-    // Ensure we have a boolean response
+    // Ensure we have boolean responses
     const isPlant = parsedResponse.isPlant === true;
+    const hasMultipleLeaves = parsedResponse.hasMultipleLeaves === true;
 
     return NextResponse.json({
       isPlant,
+      hasMultipleLeaves,
       message: isPlant 
-        ? 'Image contains a plant leaf' 
+        ? (hasMultipleLeaves 
+            ? 'Image contains multiple plant leaves' 
+            : 'Image contains a single plant leaf')
         : 'Image does not appear to be a plant leaf',
       rawResponse: text // For debugging
     });

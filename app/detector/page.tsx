@@ -157,6 +157,27 @@ export default function DetectorPage() {
     alternatives: false
   });
 
+  // Check for captured image from live mode on mount
+  useEffect(() => {
+    const capturedImage = sessionStorage.getItem('capturedImage');
+    if (capturedImage) {
+      console.log('📸 Found captured image from live mode, auto-analyzing...');
+      setBase64String(capturedImage);
+      setPreviewUrl(capturedImage);
+      
+      // Clear from sessionStorage
+      sessionStorage.removeItem('capturedImage');
+      
+      // Trigger auto-analysis flag
+      setTimeout(() => {
+        const analyzeBtn = document.querySelector('[data-analyze-btn]') as HTMLButtonElement;
+        if (analyzeBtn) {
+          analyzeBtn.click();
+        }
+      }, 1000);
+    }
+  }, []);
+
   // Auto-scroll to bottom of logs when new steps are added
   useEffect(() => {
     if (expandedLogs && logsContainerRef.current) {
@@ -950,9 +971,10 @@ Be concise but informative. Use **bold** for disease names and percentages.`
 
                 <Button
                   onClick={handleAnalyze}
-                  disabled={!imageFile || isAnalyzing}
+                  disabled={!base64String || isAnalyzing}
                   className="w-full"
                   size="lg"
+                  data-analyze-btn
                 >
                   {isAnalyzing ? "Analyzing..." : "Analyze for Diseases"}
                 </Button>
