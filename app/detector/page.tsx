@@ -111,27 +111,7 @@ const LOADING_STEPS = [
   "Analysis complete!"
 ];
 
-// Hardcoded disease results (you can change these)
-const MOCK_RESULTS = {
-  plantType: "Mango (Mangifera indica)",
-  disease: "Anthracnose",
-  severity: "Moderate",
-  confidence: 87.5,
-  description: "Anthracnose is a fungal disease caused by Colletotrichum gloeosporioides. It primarily affects mango leaves, flowers, and fruits, causing dark, sunken lesions.",
-  symptoms: [
-    "Dark brown to black spots on leaves",
-    "Sunken lesions with pink spore masses",
-    "Premature leaf drop",
-    "Fruit rotting during storage"
-  ],
-  treatment: "Apply copper-based fungicides during flowering and fruit development. Remove and destroy infected plant parts. Ensure proper drainage and avoid overhead irrigation.",
-  preventiveMeasures: [
-    "Prune trees to improve air circulation",
-    "Apply preventive fungicide sprays",
-    "Remove fallen leaves and debris",
-    "Harvest fruits at proper maturity"
-  ]
-};
+
 
 export default function DetectorPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -148,12 +128,71 @@ export default function DetectorPage() {
   const [apiResults, setApiResults] = useState<any>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
 
+  // AI-generated content states
+  const [diseaseInfo, setDiseaseInfo] = useState<string>("");
+  const [diseaseCauses, setDiseaseCauses] = useState<string>("");
+  const [diseaseSymptoms, setDiseaseSymptoms] = useState<string>("");
+  const [diseaseTreatment, setDiseaseTreatment] = useState<string>("");
+  const [diseasePrevention, setDiseasePrevention] = useState<string>("");
+  const [diseaseAlternatives, setDiseaseAlternatives] = useState<string>("");
+  
+  // Loading states for each section
+  const [loadingInfo, setLoadingInfo] = useState(false);
+  const [loadingCauses, setLoadingCauses] = useState(false);
+  const [loadingSymptoms, setLoadingSymptoms] = useState(false);
+  const [loadingTreatment, setLoadingTreatment] = useState(false);
+  const [loadingPrevention, setLoadingPrevention] = useState(false);
+  const [loadingAlternatives, setLoadingAlternatives] = useState(false);
+  
+  // Notification state
+  const [showCompleteNotification, setShowCompleteNotification] = useState(false);
+  
+  // Track completion of all sections
+  const [completedSections, setCompletedSections] = useState({
+    info: false,
+    causes: false,
+    symptoms: false,
+    treatment: false,
+    prevention: false,
+    alternatives: false
+  });
+
   // Auto-scroll to bottom of logs when new steps are added
   useEffect(() => {
     if (expandedLogs && logsContainerRef.current) {
       logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
     }
   }, [allSteps, expandedLogs]);
+  
+  // Check if all sections are complete and show notification
+  useEffect(() => {
+    const allComplete = 
+      completedSections.info &&
+      completedSections.causes &&
+      completedSections.symptoms &&
+      completedSections.treatment &&
+      completedSections.prevention &&
+      (apiResults?.prediction?.confidence_percentage >= 80 || completedSections.alternatives);
+    
+    if (allComplete && showResults && !showCompleteNotification) {
+      setShowCompleteNotification(true);
+      // Auto-hide after 4 seconds
+      const timer = setTimeout(() => {
+        setShowCompleteNotification(false);
+        // Reset completed sections to prevent re-triggering
+        setCompletedSections({
+          info: false,
+          causes: false,
+          symptoms: false,
+          treatment: false,
+          prevention: false,
+          alternatives: false
+        });
+      }, 4000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [completedSections, showResults, apiResults]);
 
   const convertToBase64 = (file: File) => {
     const reader = new FileReader();
@@ -184,6 +223,414 @@ export default function DetectorPage() {
     setIsDragging(false);
   }, []);
 
+  // Format text with markdown-style formatting
+  const formatText = (text: string): string => {
+    // Convert **bold** to <strong>
+    let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Remove standalone asterisks (bullets without proper formatting)
+    formatted = formatted.replace(/^\* /gm, '• ');
+    formatted = formatted.replace(/\n\* /g, '\n• ');
+    
+    // Add spacing after numbered list items (1. 2. 3. etc.)
+    // This adds a blank line after each numbered point for better readability
+    formatted = formatted.replace(/(\d+\.\s.*?)(\n)(\d+\.)/g, '$1\n\n$3');
+    
+    // Convert line breaks
+    formatted = formatted.replace(/\n/g, '<br/>');
+    
+    return formatted;
+  };
+
+  // Typing animation with reliable timing using requestAnimationFrame
+  const typeText = (text: string, setter: (val: string) => void, sectionName?: string) => {
+    setter(""); // Clear previous content
+    
+    const maxDuration = 2500; // 2.5 seconds max
+    const totalChars = text.length;
+    const startTime = performance.now();
+    
+    console.log(`🎬 Starting to type ${totalChars} chars (max ${maxDuration}ms)`);
+    
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      
+      // Calculate how many characters should be shown based on elapsed time
+      const progress = Math.min(elapsed / maxDuration, 1); // 0 to 1
+      const charsToShow = Math.floor(progress * totalChars);
+      
+      if (charsToShow <= totalChars) {
+        const substring = text.substring(0, charsToShow);
+        const formatted = formatText(substring);
+        setter(formatted);
+        
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          // Final update with complete text
+          setter(formatText(text));
+          console.log(`✅ Completed in ${(elapsed / 1000).toFixed(2)}s`);
+          
+          // Mark section as complete
+          if (sectionName) {
+            setCompletedSections(prev => ({ ...prev, [sectionName]: true }));
+          }
+        }
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  };
+
+  // Generate AI content for each section
+  const generateDiseaseInfo = async (diseaseName: string) => {
+    setLoadingInfo(true);
+    try {
+      // Special handling for "Healthy" status
+      if (diseaseName.toLowerCase() === 'healthy') {
+        const response = await fetch('/api/generate-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Rewrite the following text about healthy mango plants in a natural, conversational way:
+
+"Your mango plant appears to be in excellent health! A healthy mango plant exhibits vibrant green leaves, strong stems, and shows no signs of disease or pest damage. This indicates that the plant is receiving adequate sunlight, proper nutrition, and appropriate water, while being well-protected from common mango diseases."
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY the rewritten text, nothing else
+- Do NOT include phrases like "Here's the paraphrased text:" or "Here is:" or any meta-commentary
+- Keep it 2-4 sentences
+- Use **bold** for the term "healthy" or "excellent health"
+- Maintain the positive, encouraging tone
+- Start directly with the rewritten content`
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          setLoadingInfo(false);
+          typeText(data.text, setDiseaseInfo, 'info');
+        }
+        return;
+      }
+
+      // Normal disease information
+      const response = await fetch('/api/generate-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `What is ${diseaseName} in mango plants? 
+
+Provide a concise, in-depth explanation in 2-5 sentences. Focus on:
+- What it is (pathogen type, scientific name if relevant)
+- How it affects mango plants
+- Key characteristics
+
+Use **bold** for important terms. Be clear and direct. No fluff.`
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setLoadingInfo(false); // Stop loading before typing starts
+        typeText(data.text, setDiseaseInfo, 'info'); // Start typing animation
+      }
+    } catch (error) {
+      console.error('Error generating disease info:', error);
+      setDiseaseInfo("Failed to generate information.");
+      setLoadingInfo(false);
+    }
+  };
+
+  const generateDiseaseCauses = async (diseaseName: string) => {
+    setLoadingCauses(true);
+    try {
+      // Special handling for "Healthy" status
+      if (diseaseName.toLowerCase() === 'healthy') {
+        const response = await fetch('/api/generate-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Rewrite the following text about factors contributing to healthy mango plants in your own words:
+
+"1. **Optimal Environmental Conditions**: Mango plants require abundant sunlight (at least 6-8 hours daily), warm temperatures (ideally 24-30°C), and suitable humidity levels to perform photosynthesis efficiently and develop strong, healthy tissues.
+
+2. **Balanced Nutrition and Watering**: Consistent and appropriate water supply, combined with a well-balanced fertilization program that provides essential macro and micronutrients, ensures the plant has the resources needed for robust growth, fruiting, and overall vigor.
+
+3. **Effective Pest and Disease Management**: Regular monitoring and timely intervention to control common mango pests (e.g., fruit flies, mealybugs) and diseases (e.g., anthracnose, powdery mildew) prevent stress, damage, and resource drain, allowing the plant to maintain its healthy state.
+
+4. **Appropriate Soil Health**: Well-draining, fertile soil with the correct pH range (typically 5.5-7.5) provides adequate aeration, water retention, and nutrient availability, which are crucial for a strong root system and the overall health and productivity of the mango plant."
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY the rewritten numbered list, nothing else
+- Do NOT include any introductory phrases like "Here's the paraphrased text:" or "Here is the rewritten version:" or similar
+- Start directly with "1. **Factor Name**:"
+- Keep the numbered list format (1. 2. 3. 4.)
+- Use **bold** for factor names
+- Rephrase each point naturally while keeping specific numbers and key details
+- Keep it concise`
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          setLoadingCauses(false);
+          typeText(data.text, setDiseaseCauses, 'causes');
+        }
+        return;
+      }
+
+      // Normal disease causes
+      const response = await fetch('/api/generate-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `What are the typical causes for ${diseaseName} in mango plants?
+
+Provide 2-4 main causes as a numbered list. Format:
+1. **Cause name**: Brief explanation
+2. **Cause name**: Brief explanation
+
+IMPORTANT: Only use numbers (1. 2. 3.). Do NOT use asterisks (*) or bullets. Use **bold** only for cause names.`
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setLoadingCauses(false);
+        typeText(data.text, setDiseaseCauses, 'causes');
+      }
+    } catch (error) {
+      console.error('Error generating causes:', error);
+      setDiseaseCauses("Failed to generate information.");
+      setLoadingCauses(false);
+    }
+  };
+
+  const generateDiseaseSymptoms = async (diseaseName: string) => {
+    setLoadingSymptoms(true);
+    try {
+      // Special handling for "Healthy" status
+      if (diseaseName.toLowerCase() === 'healthy') {
+        const response = await fetch('/api/generate-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Rewrite the following text about signs of a healthy mango plant in your own words:
+
+"1. **Vibrant Green Foliage**: Leaves display a rich, uniform green color without yellowing, browning, or discoloration, indicating proper chlorophyll production and nutrient absorption.
+
+2. **Strong Growth and Structure**: Stems and branches are firm and sturdy, with new growth emerging regularly, showing the plant's vigor and ability to support fruit development.
+
+3. **Clean Leaf Surfaces**: Leaves are free from spots, lesions, mold, powdery substances, or visible pests, demonstrating effective natural or managed disease and pest resistance.
+
+4. **No Wilting or Drooping**: The plant maintains an upright, turgid appearance throughout the day, signaling adequate water uptake and efficient vascular function."
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY the rewritten numbered list, nothing else
+- Do NOT include any introductory text like "Here's the paraphrased text:" or "Here are the signs:" or similar
+- Start directly with "1. **Indicator Name**:"
+- Keep the numbered list format (1. 2. 3. 4.)
+- Use **bold** for indicator names
+- Rephrase naturally while keeping key information
+- Keep it concise and positive`
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          setLoadingSymptoms(false);
+          typeText(data.text, setDiseaseSymptoms, 'symptoms');
+        }
+        return;
+      }
+
+      // Normal disease symptoms
+      const response = await fetch('/api/generate-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `What are the key symptoms to check for ${diseaseName} in mango plants?
+
+List 3-5 specific visual indicators as a numbered list:
+1. **Symptom name**: Clear, concise description
+2. **Symptom name**: Clear, concise description
+
+IMPORTANT: Only use numbers (1. 2. 3.). Do NOT use asterisks (*) or bullets. Use **bold** only for symptom names.`
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setLoadingSymptoms(false);
+        typeText(data.text, setDiseaseSymptoms, 'symptoms');
+      }
+    } catch (error) {
+      console.error('Error generating symptoms:', error);
+      setDiseaseSymptoms("Failed to generate information.");
+      setLoadingSymptoms(false);
+    }
+  };
+
+  const generateDiseaseTreatment = async (diseaseName: string) => {
+    setLoadingTreatment(true);
+    try {
+      // Special handling for "Healthy" status
+      if (diseaseName.toLowerCase() === 'healthy') {
+        const response = await fetch('/api/generate-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Rewrite the following maintenance plan for healthy mango plants in your own words:
+
+"1. **Continue Regular Watering Schedule**: Maintain consistent deep watering every 7-10 days during growing season, adjusting based on rainfall and soil moisture, to support sustained growth and fruit development.
+
+2. **Apply Seasonal Fertilization**: Feed with a balanced NPK fertilizer (10-10-10 or 15-15-15) every 2-3 months during the growing season, supplemented with organic compost to maintain soil fertility and plant vigor.
+
+3. **Conduct Routine Monitoring**: Inspect leaves, stems, and fruits weekly for early signs of pests or diseases, enabling prompt intervention before issues become severe.
+
+4. **Practice Preventive Care**: Apply periodic dormant oil sprays or neem oil treatments to ward off common pests, and ensure good air circulation through proper pruning to prevent fungal diseases."
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY the rewritten numbered list, nothing else
+- Do NOT include any introductory phrases like "Here's the paraphrased text:" or "Here is the maintenance plan:" or similar
+- Start directly with "1. **Practice Name**:"
+- Keep the numbered list format (1. 2. 3. 4.)
+- Use **bold** for maintenance practice names
+- Rephrase naturally while keeping specific details (numbers, timeframes, products)
+- Maintain the instructional tone`
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          setLoadingTreatment(false);
+          typeText(data.text, setDiseaseTreatment, 'treatment');
+        }
+        return;
+      }
+
+      // Normal disease treatment
+      const response = await fetch('/api/generate-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `What is the recommended treatment plan for ${diseaseName} in mango plants?
+
+Provide 3-5 actionable steps as a numbered list. Use this exact format:
+1. **Step Name**: Detailed description here.
+2. **Step Name**: Detailed description here.
+
+IMPORTANT: 
+- Only use numbers (1. 2. 3.) for the main list
+- Do NOT use asterisks (*) or bullets within descriptions
+- Use **bold** ONLY for step names at the start
+- Be specific about products, application methods, and timing
+- Write in clear sentences without bullet points`
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setLoadingTreatment(false);
+        typeText(data.text, setDiseaseTreatment, 'treatment');
+      }
+    } catch (error) {
+      console.error('Error generating treatment:', error);
+      setDiseaseTreatment("Failed to generate information.");
+      setLoadingTreatment(false);
+    }
+  };
+
+  const generateDiseasePrevention = async (diseaseName: string) => {
+    setLoadingPrevention(true);
+    try {
+      // Special handling for "Healthy" status
+      if (diseaseName.toLowerCase() === 'healthy') {
+        const response = await fetch('/api/generate-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Rewrite the following best practices for keeping mango plants healthy in your own words:
+
+"1. **Proper Site Selection**: Choose a location with full sun exposure, well-draining soil, and protection from strong winds to create optimal growing conditions from the start.
+
+2. **Sanitation and Hygiene**: Remove fallen leaves, fruits, and debris regularly to eliminate breeding grounds for pests and disease pathogens, and sterilize pruning tools between cuts.
+
+3. **Integrated Pest Management**: Implement a combination of biological controls, resistant varieties when available, and judicious use of organic or chemical treatments only when necessary.
+
+4. **Adequate Spacing and Pruning**: Maintain proper distance between trees and prune to ensure good air circulation, which reduces humidity around foliage and prevents fungal disease development."
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY the rewritten numbered list, nothing else
+- Do NOT include any introductory text like "Here's the paraphrased text:" or "Here are the best practices:" or similar
+- Start directly with "1. **Practice Name**:"
+- Keep the numbered list format (1. 2. 3. 4.)
+- Use **bold** for practice names
+- Rephrase naturally while keeping specific details
+- Keep it concise and actionable`
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          setLoadingPrevention(false);
+          typeText(data.text, setDiseasePrevention, 'prevention');
+        }
+        return;
+      }
+
+      // Normal disease prevention
+      const response = await fetch('/api/generate-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `What are the best preventive measures for ${diseaseName} in mango plants?
+
+List 3-5 practical prevention strategies as a numbered list:
+1. **Prevention measure**: Specific actionable advice
+2. **Prevention measure**: Specific actionable advice
+
+IMPORTANT: Only use numbers (1. 2. 3.). Do NOT use asterisks (*) or bullets. Use **bold** only for measure names.`
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setLoadingPrevention(false);
+        typeText(data.text, setDiseasePrevention, 'prevention');
+      }
+    } catch (error) {
+      console.error('Error generating prevention:', error);
+      setDiseasePrevention("Failed to generate information.");
+      setLoadingPrevention(false);
+    }
+  };
+
+  const generateDiseaseAlternatives = async (allProbabilities: any[]) => {
+    setLoadingAlternatives(true);
+    try {
+      const probabilitiesText = allProbabilities
+        .map(p => `${p.disease}: ${p.percentage.toFixed(2)}%`)
+        .join(', ');
+      
+      const response = await fetch('/api/generate-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `Given these disease detection probabilities for a mango plant: ${probabilitiesText}
+
+The top prediction has moderate confidence. Provide analysis in this format:
+
+1. Acknowledge the model's uncertainty (1 sentence)
+2. **Alternative 1 (XX%)**: What distinguishes it and key signs to look for
+3. **Alternative 2 (XX%)**: What distinguishes it and key signs to look for
+
+Be concise but informative. Use **bold** for disease names and percentages.`
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setLoadingAlternatives(false);
+        typeText(data.text, setDiseaseAlternatives, 'alternatives');
+      }
+    } catch (error) {
+      console.error('Error generating alternatives:', error);
+      setDiseaseAlternatives("Failed to generate information.");
+      setLoadingAlternatives(false);
+    }
+  };
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
@@ -203,6 +650,15 @@ export default function DetectorPage() {
     setProgress(0);
     setAllSteps([]);
     setExpandedLogs(false);
+    setShowCompleteNotification(false);
+    setCompletedSections({
+      info: false,
+      causes: false,
+      symptoms: false,
+      treatment: false,
+      prevention: false,
+      alternatives: false
+    });
 
     // Start API calls immediately in parallel with animation
     const apiCallsPromise = (async () => {
@@ -254,6 +710,23 @@ export default function DetectorPage() {
         const data = await response.json();
         
         if (response.ok) {
+          // Fire AI content generation immediately after disease prediction
+          const diseaseName = data.prediction?.disease;
+          if (diseaseName) {
+            console.log('🚀 Firing all AI content generation calls...');
+            // Fire all calls at once - they'll update independently
+            generateDiseaseInfo(diseaseName);
+            generateDiseaseCauses(diseaseName);
+            generateDiseaseSymptoms(diseaseName);
+            generateDiseaseTreatment(diseaseName);
+            generateDiseasePrevention(diseaseName);
+            
+            // Generate alternatives if confidence is low
+            if (data.prediction?.confidence_percentage < 80 && data.all_probabilities) {
+              generateDiseaseAlternatives(data.all_probabilities);
+            }
+          }
+          
           return { success: true, data };
         } else {
           return { 
@@ -329,7 +802,7 @@ export default function DetectorPage() {
             return;
           }
           
-          // Set results and show them
+          // Set results and show them (AI generation already started)
           setApiResults(result.data);
           if (result.success) {
             console.log('API Results:', result.data);
@@ -346,6 +819,19 @@ export default function DetectorPage() {
 
   return (
     <div className="min-h-screen p-8 bg-background relative">
+      {/* Completion Notification */}
+      {showCompleteNotification && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top duration-300">
+          <div className="bg-green-50 dark:bg-green-950 border-2 border-green-200 dark:border-green-800 rounded-lg shadow-lg p-3 flex items-center gap-3 max-w-sm">
+            <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-green-900 dark:text-green-100">Analysis Complete</p>
+              <p className="text-xs text-green-700 dark:text-green-300">All sections generated</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Debug Button */}
       <Button
         variant="outline"
@@ -592,66 +1078,181 @@ export default function DetectorPage() {
                 {/* Plant Type */}
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Plant Type</h3>
-                  <p className="text-lg font-semibold">{MOCK_RESULTS.plantType}</p>
+                  <p className="text-lg font-semibold">Mango</p>
                 </div>
 
-                {/* Disease Detected */}
+                {/* Disease Detected / Health Status */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">Disease Detected (Mock Data)</h3>
-                    <Badge variant="destructive">{MOCK_RESULTS.severity}</Badge>
-                  </div>
-                  <p className="text-lg font-semibold text-red-600 flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5" />
-                    {MOCK_RESULTS.disease}
-                  </p>
-                  <div className="mt-2">
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <span>Confidence</span>
-                      <span className="font-semibold">{MOCK_RESULTS.confidence}%</span>
-                    </div>
-                    <Progress value={MOCK_RESULTS.confidence} className="h-2" />
-                  </div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                    {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' ? 'Health Status' : 'Disease Detected'}
+                  </h3>
+                  {apiResults?.prediction && (
+                    <>
+                      <p className={`text-lg font-semibold flex items-center gap-2 ${
+                        apiResults.prediction.disease.toLowerCase() === 'healthy' 
+                          ? 'text-green-600 dark:text-green-400' 
+                          : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {apiResults.prediction.disease.toLowerCase() === 'healthy' ? (
+                          <CheckCircle2 className="w-5 h-5" />
+                        ) : (
+                          <AlertCircle className="w-5 h-5" />
+                        )}
+                        {apiResults.prediction.disease}
+                      </p>
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span>Confidence</span>
+                          <span className="font-semibold">{apiResults.prediction.confidence_percentage?.toFixed(2)}%</span>
+                        </div>
+                        <Progress value={apiResults.prediction.confidence_percentage} className="h-2" />
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Description */}
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Description</h3>
-                  <p className="text-sm leading-relaxed">{MOCK_RESULTS.description}</p>
+                  <h3 className="text-base font-semibold text-foreground mb-3">
+                    {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' ? 'Health Overview' : 'Description'}
+                  </h3>
+                  <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
+                    <div>
+                      <h4 className="text-sm font-bold text-foreground mb-2">
+                        {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' 
+                          ? 'What does a healthy mango plant look like?' 
+                          : `What is ${apiResults?.prediction?.disease || 'this disease'}?`}
+                      </h4>
+                      {loadingInfo ? (
+                        <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
+                          ✨ Generating...
+                        </p>
+                      ) : (
+                        <div 
+                          className="text-sm text-foreground leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: diseaseInfo || "Information about this disease will be displayed here." }}
+                        />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-foreground mb-2">
+                        {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' 
+                          ? 'Factors contributing to plant health:' 
+                          : `Typical causes for ${apiResults?.prediction?.disease || 'this disease'} are:`}
+                      </h4>
+                      {loadingCauses ? (
+                        <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
+                          ✨ Generating...
+                        </p>
+                      ) : (
+                        <div 
+                          className="text-sm text-foreground leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: diseaseCauses || "Causes and conditions that lead to this disease will be displayed here." }}
+                        />
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Symptoms */}
+                {/* Key Symptoms to Check / Health Indicators */}
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Observed Symptoms</h3>
-                  <ul className="space-y-1">
-                    {MOCK_RESULTS.symptoms.map((symptom, idx) => (
-                      <li key={idx} className="text-sm flex items-start gap-2">
-                        <span className="text-red-500 mt-1">•</span>
-                        <span>{symptom}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <h3 className="text-base font-semibold text-foreground mb-3">
+                    {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' 
+                      ? 'Signs of a Healthy Plant' 
+                      : 'Key Symptoms to Check'}
+                  </h3>
+                  <div className="bg-muted/30 p-4 rounded-lg border">
+                    {loadingSymptoms ? (
+                      <p className="text-sm text-muted-foreground animate-pulse">
+                        ✨ Generating...
+                      </p>
+                    ) : (
+                      <div 
+                        className="text-sm text-foreground leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: diseaseSymptoms || "Key symptoms and visual indicators will be displayed here." }}
+                      />
+                    )}
+                  </div>
                 </div>
 
-                {/* Treatment */}
+                {/* Recommended Treatment Plan / Maintenance Plan */}
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Recommended Treatment</h3>
-                  <p className="text-sm leading-relaxed bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-200 dark:border-blue-900">
-                    {MOCK_RESULTS.treatment}
-                  </p>
+                  <h3 className="text-base font-semibold text-foreground mb-3">
+                    {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' 
+                      ? 'Recommended Maintenance Plan' 
+                      : 'Recommended Treatment Plan'}
+                  </h3>
+                  <div className={apiResults?.prediction?.disease?.toLowerCase() === 'healthy'
+                    ? "bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900"
+                    : "bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-900"
+                  }>
+                    {loadingTreatment ? (
+                      <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
+                        ✨ Generating...
+                      </p>
+                    ) : (
+                      <div 
+                        className={`text-sm leading-relaxed ${
+                          apiResults?.prediction?.disease?.toLowerCase() === 'healthy'
+                            ? 'text-foreground dark:text-green-100'
+                            : 'text-foreground dark:text-blue-100'
+                        }`}
+                        dangerouslySetInnerHTML={{ __html: diseaseTreatment || "Treatment recommendations and protocols will be displayed here." }}
+                      />
+                    )}
+                  </div>
                 </div>
 
-                {/* Preventive Measures */}
+                {/* Preventive Measures / Best Practices */}
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Preventive Measures</h3>
-                  <ul className="space-y-1">
-                    {MOCK_RESULTS.preventiveMeasures.map((measure, idx) => (
-                      <li key={idx} className="text-sm flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                        <span>{measure}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <h3 className="text-base font-semibold text-foreground mb-3">
+                    {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' 
+                      ? 'Best Practices to Stay Healthy' 
+                      : 'Preventive Measures'}
+                  </h3>
+                  <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900">
+                    {loadingPrevention ? (
+                      <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
+                        ✨ Generating...
+                      </p>
+                    ) : (
+                      <div 
+                        className="text-sm text-foreground dark:text-green-100 leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: diseasePrevention || "Preventive measures and best practices will be displayed here." }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Alternative Possibilities (only if confidence < 80%) */}
+                {apiResults?.prediction && apiResults.prediction.confidence_percentage < 80 && (
+                  <div>
+                    <h3 className="text-base font-semibold text-foreground mb-3">Alternative Possibilities</h3>
+                    <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-900">
+                      {loadingAlternatives ? (
+                        <p className="text-sm text-muted-foreground animate-pulse">
+                          ✨ Generating alternative diagnosis analysis...
+                        </p>
+                      ) : (
+                        <div 
+                          className="text-sm text-foreground dark:text-yellow-100 leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: diseaseAlternatives || "Alternative diagnosis information will be displayed here." }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Important Disclaimer */}
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Important Disclaimer</h3>
+                  <div className="bg-muted/50 p-4 rounded-lg border border-muted-foreground/20">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      This AI-powered diagnosis is provided for informational purposes only and should not replace professional agricultural advice. 
+                      For accurate diagnosis and treatment recommendations, please consult with a certified plant pathologist or agricultural extension service. 
+                      The accuracy of results depends on image quality and may vary based on disease stage and environmental conditions.
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
