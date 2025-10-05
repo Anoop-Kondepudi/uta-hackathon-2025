@@ -256,11 +256,10 @@ async def get_weather_data():
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Weather error: {str(e)}")
 
-@app.post("/generate-schedule")
-async def generate_schedule(weather_data: Dict):
+@app.post("/generate-two-week-schedule")
+async def generate_two_week_schedule(weather_data: Dict):
     """
-    Generate 2-week and annual mango farming schedules based on weather data.
-    Returns both a detailed 2-week plan and a general annual overview.
+    Generate 2-week mango farming schedule based on weather data.
     """
     try:
         from google import generativeai as genai
@@ -272,7 +271,7 @@ async def generate_schedule(weather_data: Dict):
             raise HTTPException(status_code=500, detail="Gemini API key not configured")
         
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
         
         print("🤖 Generating 2-week schedule...")
         
@@ -328,6 +327,36 @@ Only return the JSON object, no additional text."""
         import json
         two_week_plan = json.loads(two_week_plan_text)
         
+        print("✅ 2-week schedule generated successfully!")
+        
+        return {
+            "two_week_plan": two_week_plan,
+            "location": weather_data['location']
+        }
+        
+    except Exception as e:
+        print(f"❌ 2-week schedule generation error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Schedule generation error: {str(e)}")
+
+@app.post("/generate-annual-plan")
+async def generate_annual_plan(weather_data: Dict):
+    """
+    Generate annual mango cultivation overview.
+    """
+    try:
+        from google import generativeai as genai
+        import os
+        
+        # Configure Gemini AI - try both environment variable names
+        api_key = os.getenv("GOOGLE_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="Gemini API key not configured")
+        
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        
         print("🤖 Generating annual plan...")
         
         # Generate annual plan
@@ -378,21 +407,21 @@ Only return the JSON object, no additional text."""
         elif "```" in annual_plan_text:
             annual_plan_text = annual_plan_text.split("```")[1].split("```")[0].strip()
         
+        import json
         annual_plan = json.loads(annual_plan_text)
         
-        print("✅ Schedules generated successfully!")
+        print("✅ Annual plan generated successfully!")
         
         return {
-            "two_week_plan": two_week_plan,
             "annual_plan": annual_plan,
             "location": weather_data['location']
         }
         
     except Exception as e:
-        print(f"❌ Schedule generation error: {str(e)}")
+        print(f"❌ Annual plan generation error: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Schedule generation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Annual plan generation error: {str(e)}")
 
 if __name__ == "__main__":
     print("🚀 Starting Mango Disease Detection API...")
