@@ -73,7 +73,7 @@ def get_location():
 
 def get_weather(latitude, longitude):
     """
-    Get current weather data and 16-day forecast using Open-Meteo API.
+    Get current weather data and 2-week (14-day) forecast using Open-Meteo API.
     
     Args:
         latitude: Latitude coordinate
@@ -95,7 +95,7 @@ def get_weather(latitude, longitude):
             'temperature_unit': 'fahrenheit',
             'wind_speed_unit': 'mph',
             'timezone': 'auto',
-            'forecast_days': 16
+            'forecast_days': 14
         }
         
         response = requests.get(url, params=params, timeout=10)

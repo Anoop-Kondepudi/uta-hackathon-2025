@@ -4,7 +4,7 @@ import * as React from "react"
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Cloud, Droplets, Wind, Sun, Loader2 } from "lucide-react"
+import { Cloud, Droplets, Wind, Sun, Loader2, CloudRain, CloudDrizzle, CloudSnow, CloudFog, CloudLightning } from "lucide-react"
 
 interface WeatherData {
   date: string
@@ -12,6 +12,7 @@ interface WeatherData {
   temp_min: number
   rain_probability: number
   precipitation: number
+  weather_code: number
   weather_description: string
   wind_speed_max: number
   uv_index_max: number
@@ -39,6 +40,65 @@ export default function Calendar21() {
 
   const handleDayClick = (date: Date | undefined) => {
     setSelectedDate(date)
+  }
+
+  // Get weather icon based on weather code
+  const getWeatherIcon = (weatherCode: number, size: number = 16) => {
+    const iconProps = { size, className: "mx-auto" }
+    
+    // Clear sky
+    if (weatherCode === 0 || weatherCode === 1) {
+      return <Sun {...iconProps} className="mx-auto text-yellow-500" />
+    }
+    // Partly cloudy / Overcast
+    if (weatherCode === 2 || weatherCode === 3) {
+      return <Cloud {...iconProps} className="mx-auto text-gray-500" />
+    }
+    // Fog
+    if (weatherCode === 45 || weatherCode === 48) {
+      return <CloudFog {...iconProps} className="mx-auto text-gray-400" />
+    }
+    // Drizzle
+    if (weatherCode >= 51 && weatherCode <= 55) {
+      return <CloudDrizzle {...iconProps} className="mx-auto text-blue-400" />
+    }
+    // Rain
+    if (weatherCode >= 61 && weatherCode <= 67) {
+      return <CloudRain {...iconProps} className="mx-auto text-blue-600" />
+    }
+    // Snow
+    if (weatherCode >= 71 && weatherCode <= 77) {
+      return <CloudSnow {...iconProps} className="mx-auto text-blue-300" />
+    }
+    // Rain showers
+    if (weatherCode >= 80 && weatherCode <= 82) {
+      return <CloudRain {...iconProps} className="mx-auto text-blue-600" />
+    }
+    // Snow showers
+    if (weatherCode >= 85 && weatherCode <= 86) {
+      return <CloudSnow {...iconProps} className="mx-auto text-blue-300" />
+    }
+    // Thunderstorm
+    if (weatherCode >= 95 && weatherCode <= 99) {
+      return <CloudLightning {...iconProps} className="mx-auto text-purple-600" />
+    }
+    
+    // Default
+    return <Cloud {...iconProps} className="mx-auto text-gray-500" />
+  }
+
+  // Check if weather code indicates rain/drizzle
+  const isRainyWeather = (weatherCode: number): boolean => {
+    // Drizzle: 51, 53, 55
+    // Rain: 61, 63, 65, 66, 67
+    // Rain showers: 80, 81, 82
+    // Thunderstorm: 95, 96, 99
+    return (
+      (weatherCode >= 51 && weatherCode <= 55) || // Drizzle
+      (weatherCode >= 61 && weatherCode <= 67) || // Rain
+      (weatherCode >= 80 && weatherCode <= 82) || // Rain showers
+      (weatherCode >= 95 && weatherCode <= 99)    // Thunderstorm
+    )
   }
 
   const fetchWeatherData = async () => {
@@ -120,6 +180,14 @@ export default function Calendar21() {
             onSelect={handleDayClick}
             numberOfMonths={1}
             captionLayout="dropdown"
+            disabled={(date) => {
+              const today = new Date()
+              today.setHours(0, 0, 0, 0)
+              const twoWeeksFromNow = new Date(today)
+              twoWeeksFromNow.setDate(today.getDate() + 14)
+              return date < today || date >= twoWeeksFromNow
+            }}
+            defaultMonth={new Date()}
             className="rounded-lg border shadow-sm [--cell-size:--spacing(11)] md:[--cell-size:--spacing(13)]"
             formatters={{
               formatMonthDropdown: (date) => {
@@ -131,6 +199,7 @@ export default function Calendar21() {
                 const weather = weatherData ? getWeatherForDate(day.date) : undefined
                 const rainProb = weather?.rain_probability || 0
                 const bgColor = getRainBackgroundColor(rainProb)
+                const showRainPercent = weather && isRainyWeather(weather.weather_code) && rainProb > 0
 
                 return (
                   <CalendarDayButton 
@@ -141,9 +210,14 @@ export default function Calendar21() {
                   >
                     {children}
                     {!modifiers.outside && weather && (
-                      <span className="text-[10px] font-medium">
-                        {Math.round(weather.temp_min)}-{Math.round(weather.temp_max)}°F
-                      </span>
+                      <div className="flex flex-col items-center gap-0.5">
+                        {getWeatherIcon(weather.weather_code, 14)}
+                        {showRainPercent && (
+                          <span className="text-[9px] font-semibold text-blue-700 dark:text-blue-300">
+                            {rainProb}%
+                          </span>
+                        )}
+                      </div>
                     )}
                   </CalendarDayButton>
                 )
@@ -219,7 +293,7 @@ export default function Calendar21() {
                   {/* Weather Condition */}
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-900/20 flex items-center justify-center">
-                      <Cloud className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                      {getWeatherIcon(selectedWeather.weather_code, 20)}
                     </div>
                     <div>
                       <div className="text-sm text-muted-foreground">Conditions</div>

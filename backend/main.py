@@ -200,7 +200,7 @@ async def predict_disease_base64(data: Dict[str, str]):
 @app.get("/weather")
 async def get_weather_data():
     """
-    Get weather forecast for the next 16 days based on user's location.
+    Get weather forecast for the next 2 weeks (14 days) based on user's location.
     Returns temperature ranges and rain probability for each day.
     """
     try:
