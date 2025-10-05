@@ -3,6 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   Upload,
   Bug,
   ChevronDown,
@@ -1262,163 +1268,176 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
                   )}
                 </div>
 
-                {/* Description */}
-                <div>
-                  <h3 className="text-base font-semibold text-foreground mb-3">
-                    {apiResults?.prediction?.disease?.toLowerCase() ===
-                    "healthy"
-                      ? "Health Overview"
-                      : "Description"}
-                  </h3>
-                  <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
-                    <div>
-                      <h4 className="text-sm font-bold text-foreground mb-2">
-                        {apiResults?.prediction?.disease?.toLowerCase() ===
-                        "healthy"
-                          ? "What does a healthy mango plant look like?"
-                          : `What is ${
-                              apiResults?.prediction?.disease || "this disease"
-                            }?`}
-                      </h4>
-                      {loadingInfo ? (
-                        <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
-                          ✨ Generating...
-                        </p>
-                      ) : (
-                        <HighlightedText
-                          content={diseaseInfo || "Information about this disease will be displayed here."}
-                          terms={extractedTerms}
-                          className="text-sm text-foreground leading-relaxed"
-                        />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-foreground mb-2">
-                        {apiResults?.prediction?.disease?.toLowerCase() ===
-                        "healthy"
-                          ? "Factors contributing to plant health:"
-                          : `Typical causes for ${
-                              apiResults?.prediction?.disease || "this disease"
-                            } are:`}
-                      </h4>
-                      {loadingCauses ? (
-                        <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
-                          ✨ Generating...
-                        </p>
-                      ) : (
-                        <HighlightedText
-                          content={diseaseCauses || "Causes and conditions that lead to this disease will be displayed here."}
-                          terms={extractedTerms}
-                          className="text-sm text-foreground leading-relaxed"
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Key Symptoms to Check / Health Indicators */}
-                <div>
-                  <h3 className="text-base font-semibold text-foreground mb-3">
-                    {apiResults?.prediction?.disease?.toLowerCase() ===
-                    "healthy"
-                      ? "Signs of a Healthy Plant"
-                      : "Key Symptoms to Check"}
-                  </h3>
-                  <div className="bg-muted/30 p-4 rounded-lg border">
-                    {loadingSymptoms ? (
-                      <p className="text-sm text-muted-foreground animate-pulse">
-                        ✨ Generating...
-                      </p>
-                    ) : (
-                      <HighlightedText
-                        content={diseaseSymptoms || "Key symptoms and visual indicators will be displayed here."}
-                        terms={extractedTerms}
-                        className="text-sm text-foreground leading-relaxed"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {/* Recommended Treatment Plan / Maintenance Plan */}
-                <div>
-                  <h3 className="text-base font-semibold text-foreground mb-3">
-                    {apiResults?.prediction?.disease?.toLowerCase() ===
-                    "healthy"
-                      ? "Recommended Maintenance Plan"
-                      : "Recommended Treatment Plan"}
-                  </h3>
-                  <div
-                    className={
-                      apiResults?.prediction?.disease?.toLowerCase() ===
+                {/* Accordion for all sections */}
+                <Accordion type="multiple" className="w-full" defaultValue={["description", "symptoms", "treatment", "prevention"]}>
+                  {/* Description */}
+                  <AccordionItem value="description">
+                    <AccordionTrigger className="text-base font-semibold hover:no-underline">
+                      {apiResults?.prediction?.disease?.toLowerCase() ===
                       "healthy"
-                        ? "bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900"
-                        : "bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-900"
-                    }
-                  >
-                    {loadingTreatment ? (
-                      <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
-                        ✨ Generating...
-                      </p>
-                    ) : (
-                      <HighlightedText
-                        content={diseaseTreatment || "Treatment recommendations and protocols will be displayed here."}
-                        terms={extractedTerms}
-                        className={`text-sm leading-relaxed ${
-                          apiResults?.prediction?.disease?.toLowerCase() ===
-                          "healthy"
-                            ? "text-foreground dark:text-green-100"
-                            : "text-foreground dark:text-blue-100"
-                        }`}
-                      />
-                    )}
-                  </div>
-                </div>
+                        ? "Health Overview"
+                        : "Description"}
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
+                        <div>
+                          <h4 className="text-sm font-bold text-foreground mb-2">
+                            {apiResults?.prediction?.disease?.toLowerCase() ===
+                            "healthy"
+                              ? "What does a healthy mango plant look like?"
+                              : `What is ${
+                                  apiResults?.prediction?.disease || "this disease"
+                                }?`}
+                          </h4>
+                          {loadingInfo ? (
+                            <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
+                              ✨ Generating...
+                            </p>
+                          ) : (
+                            <HighlightedText
+                              content={diseaseInfo || "Information about this disease will be displayed here."}
+                              terms={extractedTerms}
+                              className="text-sm text-foreground leading-relaxed"
+                            />
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-foreground mb-2">
+                            {apiResults?.prediction?.disease?.toLowerCase() ===
+                            "healthy"
+                              ? "Factors contributing to plant health:"
+                              : `Typical causes for ${
+                                  apiResults?.prediction?.disease || "this disease"
+                                } are:`}
+                          </h4>
+                          {loadingCauses ? (
+                            <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
+                              ✨ Generating...
+                            </p>
+                          ) : (
+                            <HighlightedText
+                              content={diseaseCauses || "Causes and conditions that lead to this disease will be displayed here."}
+                              terms={extractedTerms}
+                              className="text-sm text-foreground leading-relaxed"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                {/* Preventive Measures / Best Practices */}
-                <div>
-                  <h3 className="text-base font-semibold text-foreground mb-3">
-                    {apiResults?.prediction?.disease?.toLowerCase() ===
-                    "healthy"
-                      ? "Best Practices to Stay Healthy"
-                      : "Preventive Measures"}
-                  </h3>
-                  <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900">
-                    {loadingPrevention ? (
-                      <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
-                        ✨ Generating...
-                      </p>
-                    ) : (
-                      <HighlightedText
-                        content={diseasePrevention || "Preventive measures and best practices will be displayed here."}
-                        terms={extractedTerms}
-                        className="text-sm text-foreground dark:text-green-100 leading-relaxed"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {/* Alternative Possibilities (only if confidence < 80%) */}
-                {apiResults?.prediction &&
-                  apiResults.prediction.confidence_percentage < 80 && (
-                    <div>
-                      <h3 className="text-base font-semibold text-foreground mb-3">
-                        Alternative Possibilities
-                      </h3>
-                      <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-900">
-                        {loadingAlternatives ? (
+                  {/* Key Symptoms to Check / Health Indicators */}
+                  <AccordionItem value="symptoms">
+                    <AccordionTrigger className="text-base font-semibold hover:no-underline">
+                      {apiResults?.prediction?.disease?.toLowerCase() ===
+                      "healthy"
+                        ? "Signs of a Healthy Plant"
+                        : "Key Symptoms to Check"}
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="bg-muted/30 p-4 rounded-lg border">
+                        {loadingSymptoms ? (
                           <p className="text-sm text-muted-foreground animate-pulse">
-                            ✨ Generating alternative diagnosis analysis...
+                            ✨ Generating...
                           </p>
                         ) : (
                           <HighlightedText
-                            content={diseaseAlternatives || "Alternative diagnosis information will be displayed here."}
+                            content={diseaseSymptoms || "Key symptoms and visual indicators will be displayed here."}
                             terms={extractedTerms}
-                            className="text-sm text-foreground dark:text-yellow-100 leading-relaxed"
+                            className="text-sm text-foreground leading-relaxed"
                           />
                         )}
                       </div>
-                    </div>
-                  )}
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Recommended Treatment Plan / Maintenance Plan */}
+                  <AccordionItem value="treatment">
+                    <AccordionTrigger className="text-base font-semibold hover:no-underline">
+                      {apiResults?.prediction?.disease?.toLowerCase() ===
+                      "healthy"
+                        ? "Recommended Maintenance Plan"
+                        : "Recommended Treatment Plan"}
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div
+                        className={
+                          apiResults?.prediction?.disease?.toLowerCase() ===
+                          "healthy"
+                            ? "bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900"
+                            : "bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-900"
+                        }
+                      >
+                        {loadingTreatment ? (
+                          <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
+                            ✨ Generating...
+                          </p>
+                        ) : (
+                          <HighlightedText
+                            content={diseaseTreatment || "Treatment recommendations and protocols will be displayed here."}
+                            terms={extractedTerms}
+                            className={`text-sm leading-relaxed ${
+                              apiResults?.prediction?.disease?.toLowerCase() ===
+                              "healthy"
+                                ? "text-foreground dark:text-green-100"
+                                : "text-foreground dark:text-blue-100"
+                            }`}
+                          />
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Preventive Measures / Best Practices */}
+                  <AccordionItem value="prevention">
+                    <AccordionTrigger className="text-base font-semibold hover:no-underline">
+                      {apiResults?.prediction?.disease?.toLowerCase() ===
+                      "healthy"
+                        ? "Best Practices to Stay Healthy"
+                        : "Preventive Measures"}
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900">
+                        {loadingPrevention ? (
+                          <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
+                            ✨ Generating...
+                          </p>
+                        ) : (
+                          <HighlightedText
+                            content={diseasePrevention || "Preventive measures and best practices will be displayed here."}
+                            terms={extractedTerms}
+                            className="text-sm text-foreground dark:text-green-100 leading-relaxed"
+                          />
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Alternative Possibilities (only if confidence < 80%) */}
+                  {apiResults?.prediction &&
+                    apiResults.prediction.confidence_percentage < 80 && (
+                      <AccordionItem value="alternatives">
+                        <AccordionTrigger className="text-base font-semibold hover:no-underline">
+                          Alternative Possibilities
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-900">
+                            {loadingAlternatives ? (
+                              <p className="text-sm text-muted-foreground animate-pulse">
+                                ✨ Generating alternative diagnosis analysis...
+                              </p>
+                            ) : (
+                              <HighlightedText
+                                content={diseaseAlternatives || "Alternative diagnosis information will be displayed here."}
+                                terms={extractedTerms}
+                                className="text-sm text-foreground dark:text-yellow-100 leading-relaxed"
+                              />
+                            )}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )}
+                </Accordion>
 
                 {/* Important Disclaimer */}
                 <div>
