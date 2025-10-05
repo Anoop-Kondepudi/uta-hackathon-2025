@@ -1,27 +1,20 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 FastAPI backend for Mango Disease Detection
 """
-import sys
 import io
-
-# Fix encoding for Windows console
-if sys.platform == 'win32':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
-
-from fastapi import FastAPI, UploadFile, HTTPException, File
-from fastapi.middleware.cors import CORSMiddleware
-from PIL import Image
+import os
+import json
 import base64
-from typing import Dict, List
+from typing import Dict
 from pathlib import Path
 from contextlib import asynccontextmanager
-import uvicorn
+
 import torch
-import pickle
-import os
+import uvicorn
+from PIL import Image
+from fastapi import FastAPI, UploadFile, HTTPException, File
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 # Load environment variables from .env.local in parent directory
@@ -37,51 +30,49 @@ async def lifespan(app: FastAPI):
     global learn
     print("🥭 Loading mango disease detection model...")
     try:
-        # Model is in the project root directory
-        model_path = Path(__file__).parent.parent / "mango_diseases.pkl"
-        print(f"📂 Looking for model at: {model_path}")
+        # Model is in the backend directory
+        model_path = Path(__file__).parent / "mango_diseases.pkl"
         
         if not model_path.exists():
             raise FileNotFoundError(f"Model file not found at {model_path}")
         
-        print("🔧 Loading model trained on GPU (loading to CPU)...")
-        
-        # Workaround for FastAI 2.8.4 bug - load directly with torch
-        import torch
-        
-        # Load model directly with torch, mapping GPU tensors to CPU
-        print("📦 Loading pickle file...")
+        # Load model with torch, mapping GPU tensors to CPU
         learn = torch.load(model_path, map_location='cpu', weights_only=False)
         
         # Ensure everything is on CPU and in evaluation mode
         if hasattr(learn, 'model'):
             learn.model = learn.model.cpu()
             learn.model.eval()
-            print("✅ Model moved to CPU and set to evaluation mode")
         
         if hasattr(learn, 'dls') and hasattr(learn.dls, 'cpu'):
             learn.dls.cpu()
-            print("✅ Data loaders moved to CPU")
         
-        print("✅ Model loaded successfully!")
-        print(f"📋 Detectable diseases: {', '.join(learn.dls.vocab)}")
+        print(f"✅ Model loaded: {', '.join(learn.dls.vocab)}")
     except Exception as e:
         print(f"❌ Error loading model: {e}")
-        import traceback
-        traceback.print_exc()
         raise
     
-    yield  # Server is running
+    yield
     
-    # Cleanup (if needed)
     print("👋 Shutting down...")
 
 app = FastAPI(title="Mango Disease Detection API", lifespan=lifespan)
 
 # Enable CORS for Next.js frontend
+# Allow both local development and production URLs
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://uta-hackathon-2025.onrender.com"  # Production URL
+]
+
+# Add any additional origins from environment variable
+if os.environ.get("ALLOWED_ORIGINS"):
+    allowed_origins.extend(os.environ.get("ALLOWED_ORIGINS").split(","))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Next.js dev server
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -156,33 +147,21 @@ async def predict_disease_base64(data: Dict[str, str]):
         raise HTTPException(status_code=500, detail="Model not loaded")
     
     try:
-        print("🔍 Received prediction request")
-        
-        # Get base64 string from request
+        # Get base64 string and remove data URL prefix if present
         base64_string = data.get("image", "")
-        print(f"📊 Base64 string length: {len(base64_string)}")
-        
-        # Remove data URL prefix if present
         if "base64," in base64_string:
             base64_string = base64_string.split("base64,")[1]
-            print("✂️  Removed data URL prefix")
         
         # Decode base64 to image
         image_bytes = base64.b64decode(base64_string)
-        print(f"📦 Decoded {len(image_bytes)} bytes")
-        
         image = Image.open(io.BytesIO(image_bytes))
-        print(f"🖼️  Image opened: {image.size}, mode: {image.mode}")
         
         # Convert RGBA to RGB if needed
         if image.mode == 'RGBA':
-            print("🔄 Converting RGBA to RGB")
             image = image.convert('RGB')
         
         # Make prediction
-        print("🤖 Running model prediction...")
         pred_class, pred_idx, probs = learn.predict(image)
-        print(f"✅ Prediction complete: {pred_class}")
         
         # Prepare all probabilities
         all_probabilities = []
@@ -206,31 +185,21 @@ async def predict_disease_base64(data: Dict[str, str]):
         }
         
     except Exception as e:
-        print(f"❌ Prediction error: {str(e)}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
 @app.get("/weather")
 async def get_weather_data():
     """
-    Get weather forecast for the next 2 weeks (14 days) based on user's location.
-    Returns temperature ranges and rain probability for each day.
+    Get weather forecast for the next 2 weeks based on user's location.
     """
     try:
         from weather import get_location, get_weather, get_weather_description
         
-        print("🌍 Fetching location...")
         location = get_location()
-        
         if not location:
             raise HTTPException(status_code=500, detail="Could not determine location")
         
-        print(f"📍 Location: {location['city']}, {location['country']}")
-        print("☁️ Fetching weather data...")
-        
         weather_data = get_weather(location['latitude'], location['longitude'])
-        
         if not weather_data:
             raise HTTPException(status_code=500, detail="Could not fetch weather data")
         
@@ -239,9 +208,8 @@ async def get_weather_data():
         forecast = []
         
         for i in range(len(daily['time'])):
-            date = daily['time'][i]
             forecast.append({
-                'date': date,
+                'date': daily['time'][i],
                 'temp_max': daily['temperature_2m_max'][i],
                 'temp_min': daily['temperature_2m_min'][i],
                 'rain_probability': daily['precipitation_probability_max'][i],
@@ -259,9 +227,6 @@ async def get_weather_data():
         }
         
     except Exception as e:
-        print(f"❌ Weather error: {str(e)}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Weather error: {str(e)}")
 
 @app.post("/generate-two-week-schedule")
@@ -271,17 +236,14 @@ async def generate_two_week_schedule(weather_data: Dict):
     """
     try:
         from google import generativeai as genai
-        import os
         
-        # Configure Gemini AI - try both environment variable names
+        # Configure Gemini AI
         api_key = os.getenv("GOOGLE_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise HTTPException(status_code=500, detail="Gemini API key not configured")
         
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-2.0-flash-exp')
-        
-        print("🤖 Generating 2-week schedule...")
         
         # Generate 2-week plan based on weather
         two_week_prompt = f"""You are an expert mango farming advisor. Based on the following weather data for the next 2 weeks, create a detailed daily task schedule for mango cultivation.
@@ -332,10 +294,7 @@ Only return the JSON object, no additional text."""
         elif "```" in two_week_plan_text:
             two_week_plan_text = two_week_plan_text.split("```")[1].split("```")[0].strip()
         
-        import json
         two_week_plan = json.loads(two_week_plan_text)
-        
-        print("✅ 2-week schedule generated successfully!")
         
         return {
             "two_week_plan": two_week_plan,
@@ -343,9 +302,6 @@ Only return the JSON object, no additional text."""
         }
         
     except Exception as e:
-        print(f"❌ 2-week schedule generation error: {str(e)}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Schedule generation error: {str(e)}")
 
 @app.post("/generate-annual-plan")
@@ -355,17 +311,14 @@ async def generate_annual_plan(weather_data: Dict):
     """
     try:
         from google import generativeai as genai
-        import os
         
-        # Configure Gemini AI - try both environment variable names
+        # Configure Gemini AI
         api_key = os.getenv("GOOGLE_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise HTTPException(status_code=500, detail="Gemini API key not configured")
         
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-2.0-flash-exp')
-        
-        print("🤖 Generating annual plan...")
         
         # Generate annual plan
         annual_prompt = f"""You are an expert mango farming advisor. Create a comprehensive annual mango cultivation calendar.
@@ -415,10 +368,7 @@ Only return the JSON object, no additional text."""
         elif "```" in annual_plan_text:
             annual_plan_text = annual_plan_text.split("```")[1].split("```")[0].strip()
         
-        import json
         annual_plan = json.loads(annual_plan_text)
-        
-        print("✅ Annual plan generated successfully!")
         
         return {
             "annual_plan": annual_plan,
@@ -426,13 +376,12 @@ Only return the JSON object, no additional text."""
         }
         
     except Exception as e:
-        print(f"❌ Annual plan generation error: {str(e)}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Annual plan generation error: {str(e)}")
 
 if __name__ == "__main__":
+    # Get port from environment variable (for Render deployment) or default to 8001
+    port = int(os.environ.get("PORT", 8001))
     print("🚀 Starting Mango Disease Detection API...")
-    print("📍 API will be available at: http://localhost:8001")
-    print("📖 API docs will be available at: http://localhost:8001/docs")
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    print(f"📍 API will be available at: http://0.0.0.0:{port}")
+    print(f"📖 API docs will be available at: http://0.0.0.0:{port}/docs")
+    uvicorn.run(app, host="0.0.0.0", port=port)
