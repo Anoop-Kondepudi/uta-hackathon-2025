@@ -32,11 +32,53 @@ interface WeatherResponse {
   forecast: WeatherData[]
 }
 
+interface ScheduleDay {
+  date: string
+  tasks: string[]
+  reason: string
+  weather_consideration: string
+}
+
+interface TwoWeekPlan {
+  schedule: ScheduleDay[]
+}
+
+interface AnnualMonth {
+  month: string
+  stage: string
+  key_activities: string[]
+  notes: string
+}
+
+interface CriticalPeriod {
+  period: string
+  months: string[]
+  importance: string
+}
+
+interface AnnualPlan {
+  annual_overview: AnnualMonth[]
+  harvest_windows: string[]
+  critical_periods: CriticalPeriod[]
+}
+
+interface ScheduleResponse {
+  two_week_plan: TwoWeekPlan
+  annual_plan: AnnualPlan
+  location: {
+    city: string
+    region: string
+    country: string
+  }
+}
+
 export default function Calendar21() {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(undefined)
   const [weatherData, setWeatherData] = React.useState<WeatherResponse | null>(null)
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [scheduleData, setScheduleData] = React.useState<ScheduleResponse | null>(null)
+  const [isGeneratingSchedule, setIsGeneratingSchedule] = React.useState(false)
 
   const handleDayClick = (date: Date | undefined) => {
     setSelectedDate(date)
@@ -116,6 +158,37 @@ export default function Calendar21() {
       console.error("Error fetching weather:", err)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const generateSchedule = async () => {
+    if (!weatherData) {
+      setError("Please fetch weather data first")
+      return
+    }
+
+    setIsGeneratingSchedule(true)
+    setError(null)
+    try {
+      const response = await fetch("http://localhost:8000/generate-schedule", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(weatherData),
+      })
+      
+      if (!response.ok) {
+        throw new Error("Failed to generate schedule")
+      }
+      
+      const data: ScheduleResponse = await response.json()
+      setScheduleData(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate schedule")
+      console.error("Error generating schedule:", err)
+    } finally {
+      setIsGeneratingSchedule(false)
     }
   }
 
@@ -357,11 +430,143 @@ export default function Calendar21() {
 
         {/* Schedule Box */}
         <Card className="w-full shadow-lg">
-          <CardContent className="flex items-center justify-center py-16">
-            <Button size="lg" className="gap-2">
-              <span className="text-lg">Generate Schedule with AI</span>
-            </Button>
-          </CardContent>
+          {!scheduleData ? (
+            <CardContent className="flex items-center justify-center py-16">
+              <Button 
+                size="lg" 
+                className="gap-2"
+                onClick={generateSchedule}
+                disabled={isGeneratingSchedule || !weatherData}
+              >
+                {isGeneratingSchedule ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="text-lg">Generating Schedule...</span>
+                  </>
+                ) : (
+                  <span className="text-lg">Generate Schedule with AI</span>
+                )}
+              </Button>
+              {!weatherData && (
+                <p className="text-sm text-muted-foreground mt-4 absolute bottom-4">
+                  Fetch weather data first to generate schedule
+                </p>
+              )}
+            </CardContent>
+          ) : (
+            <CardContent className="p-6">
+              <div className="space-y-8">
+                {/* 2-Week Plan */}
+                <div>
+                  <h3 className="text-2xl font-bold mb-4">📅 2-Week Task Schedule</h3>
+                  <div className="space-y-4">
+                    {scheduleData.two_week_plan.schedule.map((day) => (
+                      <Card key={day.date} className="border-l-4 border-l-green-500">
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-semibold text-lg">
+                              {new Date(day.date).toLocaleDateString("en-US", {
+                                weekday: "long",
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </h4>
+                            {day.tasks.length > 0 && (
+                              <span className="text-sm bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2 py-1 rounded">
+                                {day.tasks.length} {day.tasks.length === 1 ? "task" : "tasks"}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {day.tasks.length > 0 ? (
+                            <ul className="list-disc list-inside space-y-1 mb-3 text-sm">
+                              {day.tasks.map((task, idx) => (
+                                <li key={idx} className="text-foreground">{task}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic mb-3">No tasks scheduled</p>
+                          )}
+                          
+                          <div className="space-y-1 text-xs text-muted-foreground">
+                            <p><strong>Reason:</strong> {day.reason}</p>
+                            <p><strong>Weather:</strong> {day.weather_consideration}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Annual Plan */}
+                <div className="border-t pt-8">
+                  <h3 className="text-2xl font-bold mb-4">📆 Annual Mango Cultivation Overview</h3>
+                  
+                  {/* Harvest Windows */}
+                  <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/10 rounded-lg">
+                    <h4 className="font-semibold text-lg mb-2 text-orange-700 dark:text-orange-400">
+                      🥭 Harvest Windows
+                    </h4>
+                    <p className="text-sm">
+                      {scheduleData.annual_plan.harvest_windows.join(", ")}
+                    </p>
+                  </div>
+
+                  {/* Monthly Overview */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    {scheduleData.annual_plan.annual_overview.map((month) => (
+                      <Card key={month.month} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <h4 className="font-semibold text-base mb-1">{month.month}</h4>
+                          <p className="text-xs text-muted-foreground mb-2 italic">{month.stage}</p>
+                          <ul className="list-disc list-inside space-y-0.5 mb-2 text-xs">
+                            {month.key_activities.map((activity, idx) => (
+                              <li key={idx}>{activity}</li>
+                            ))}
+                          </ul>
+                          <p className="text-xs text-muted-foreground">{month.notes}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* Critical Periods */}
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-lg">⚠️ Critical Periods</h4>
+                    {scheduleData.annual_plan.critical_periods.map((period, idx) => (
+                      <Card key={idx} className="border-l-4 border-l-red-500">
+                        <CardContent className="p-4">
+                          <h5 className="font-semibold mb-1">{period.period}</h5>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            <strong>Months:</strong> {period.months.join(", ")}
+                          </p>
+                          <p className="text-sm">{period.importance}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* Regenerate Button */}
+                  <div className="flex justify-center mt-6">
+                    <Button 
+                      variant="outline" 
+                      onClick={generateSchedule}
+                      disabled={isGeneratingSchedule}
+                    >
+                      {isGeneratingSchedule ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Regenerating...
+                        </>
+                      ) : (
+                        "Regenerate Schedule"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
       </div>
     </div>

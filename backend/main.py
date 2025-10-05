@@ -13,6 +13,12 @@ from contextlib import asynccontextmanager
 import uvicorn
 import torch
 import pickle
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env.local in parent directory
+env_path = Path(__file__).parent.parent / ".env.local"
+load_dotenv(dotenv_path=env_path)
 
 # Global variable to store the model
 learn = None
@@ -249,6 +255,144 @@ async def get_weather_data():
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Weather error: {str(e)}")
+
+@app.post("/generate-schedule")
+async def generate_schedule(weather_data: Dict):
+    """
+    Generate 2-week and annual mango farming schedules based on weather data.
+    Returns both a detailed 2-week plan and a general annual overview.
+    """
+    try:
+        from google import generativeai as genai
+        import os
+        
+        # Configure Gemini AI - try both environment variable names
+        api_key = os.getenv("GOOGLE_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="Gemini API key not configured")
+        
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        print("🤖 Generating 2-week schedule...")
+        
+        # Generate 2-week plan based on weather
+        two_week_prompt = f"""You are an expert mango farming advisor. Based on the following weather data for the next 2 weeks, create a detailed daily task schedule for mango cultivation.
+
+Weather Data:
+Location: {weather_data['location']['city']}, {weather_data['location']['region']}, {weather_data['location']['country']}
+
+Forecast:
+{chr(10).join([f"Date: {day['date']}, Temp: {day['temp_min']}°F-{day['temp_max']}°F, Rain: {day['rain_probability']}%, Precipitation: {day['precipitation']}mm, Conditions: {day['weather_description']}, Wind: {day['wind_speed_max']}mph, UV: {day['uv_index_max']}" for day in weather_data['forecast']])}
+
+Important Guidelines:
+1. DO NOT schedule fertilizer, pesticide, or foliar spray applications on days with >30% rain probability or expected precipitation
+2. DO NOT water on rainy days
+3. Schedule spraying on calm days (wind <10mph) with no rain
+4. Consider UV index for worker safety and plant stress
+5. High temperatures (>95°F) - limit strenuous work and increase irrigation
+6. Plan pruning and harvesting on dry, clear days
+
+Return a JSON object with this structure:
+{{
+  "schedule": [
+    {{
+      "date": "YYYY-MM-DD",
+      "tasks": ["task1", "task2", ...],
+      "reason": "Explanation for why these tasks are assigned (or why no tasks if empty)",
+      "weather_consideration": "Brief note about weather impact"
+    }}
+  ]
+}}
+
+Be specific about tasks like:
+- Irrigation scheduling
+- Fertilizer application (type and timing)
+- Pesticide/fungicide spraying (specific to mango diseases)
+- Pruning
+- Harvesting readiness checks
+- Soil maintenance
+- Weed control
+
+Only return the JSON object, no additional text."""
+
+        two_week_response = model.generate_content(two_week_prompt)
+        two_week_plan_text = two_week_response.text.strip()
+        
+        # Clean up the response to extract JSON
+        if "```json" in two_week_plan_text:
+            two_week_plan_text = two_week_plan_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in two_week_plan_text:
+            two_week_plan_text = two_week_plan_text.split("```")[1].split("```")[0].strip()
+        
+        import json
+        two_week_plan = json.loads(two_week_plan_text)
+        
+        print("🤖 Generating annual plan...")
+        
+        # Generate annual plan
+        annual_prompt = f"""You are an expert mango farming advisor. Create a comprehensive annual mango cultivation calendar.
+
+Location: {weather_data['location']['city']}, {weather_data['location']['region']}, {weather_data['location']['country']}
+Climate Zone: Subtropical/Temperate
+
+Provide a month-by-month overview for mango cultivation including:
+- Flowering season
+- Fruit development stages
+- Harvest timing
+- Pruning schedules
+- Major fertilization periods
+- Pest and disease management cycles
+- Irrigation planning
+- Soil preparation
+
+Return a JSON object with this structure:
+{{
+  "annual_overview": [
+    {{
+      "month": "January",
+      "stage": "Flowering/Vegetative/Harvest/etc",
+      "key_activities": ["activity1", "activity2", ...],
+      "notes": "Important considerations for this month"
+    }}
+  ],
+  "harvest_windows": ["Month1", "Month2"],
+  "critical_periods": [
+    {{
+      "period": "Description",
+      "months": ["Month1", "Month2"],
+      "importance": "Why this period is critical"
+    }}
+  ]
+}}
+
+Consider the local climate zone for {weather_data['location']['city']}, {weather_data['location']['region']}.
+Only return the JSON object, no additional text."""
+
+        annual_response = model.generate_content(annual_prompt)
+        annual_plan_text = annual_response.text.strip()
+        
+        # Clean up the response to extract JSON
+        if "```json" in annual_plan_text:
+            annual_plan_text = annual_plan_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in annual_plan_text:
+            annual_plan_text = annual_plan_text.split("```")[1].split("```")[0].strip()
+        
+        annual_plan = json.loads(annual_plan_text)
+        
+        print("✅ Schedules generated successfully!")
+        
+        return {
+            "two_week_plan": two_week_plan,
+            "annual_plan": annual_plan,
+            "location": weather_data['location']
+        }
+        
+    except Exception as e:
+        print(f"❌ Schedule generation error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Schedule generation error: {str(e)}")
 
 if __name__ == "__main__":
     print("🚀 Starting Mango Disease Detection API...")
