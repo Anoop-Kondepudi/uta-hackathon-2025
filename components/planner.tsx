@@ -87,7 +87,8 @@ interface AnnualPlanResponse {
 }
 
 export default function Planner() {
-  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(undefined)
+  // Set today as default selected date
+  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date())
   const [weatherData, setWeatherData] = React.useState<WeatherResponse | null>(null)
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -269,9 +270,6 @@ export default function Planner() {
     return weatherData.forecast.find(day => day.date === dateString)
   }
 
-  // Get selected date weather info
-  const selectedWeather = selectedDate ? getWeatherForDate(selectedDate) : undefined
-
   // Get tasks for a specific date (fix timezone offset)
   const getTasksForDate = (date: Date): ScheduleDay | undefined => {
     if (!twoWeekSchedule) return undefined
@@ -285,9 +283,6 @@ export default function Planner() {
     return twoWeekSchedule.schedule.find(scheduleDay => scheduleDay.date === dateString)
   }
 
-  // Get selected date tasks
-  const selectedTasks = selectedDate ? getTasksForDate(selectedDate) : undefined
-
   // Calculate background color based on rain probability
   const getRainBackgroundColor = (rainProb: number): string => {
     if (rainProb === 0) return ""
@@ -295,34 +290,60 @@ export default function Planner() {
     return `rgba(239, 68, 68, ${opacity})` // red-500 with variable opacity
   }
 
+  // Get weather and tasks for the selected date
+  const selectedWeather = selectedDate ? getWeatherForDate(selectedDate) : undefined
+  const selectedTasks = selectedDate ? getTasksForDate(selectedDate) : undefined
+
   return (
-    <div className="flex justify-center w-full">
-      <div className="flex gap-6 flex-col max-w-7xl w-full px-4">
-      {/* Loading indicator */}
-      {isLoading && (
-        <div className="flex justify-center items-center gap-2 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Loading weather data...</span>
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 py-8">
+      <div className="max-w-7xl mx-auto px-4">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 dark:from-green-400 dark:to-emerald-400 bg-clip-text text-transparent mb-2">
+            Mango Farming Planner
+          </h1>
+          <p className="text-muted-foreground">
+            AI-powered farming schedule based on weather forecasts
+          </p>
+          {weatherData && (
+            <p className="text-sm text-muted-foreground mt-1">
+              📍 {weatherData.location.city}, {weatherData.location.region}, {weatherData.location.country}
+            </p>
+          )}
         </div>
-      )}
 
-      {error && (
-        <div className="text-center text-red-500 text-sm">
-          {error}
-        </div>
-      )}
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="flex justify-center items-center gap-2 text-muted-foreground mb-4">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span>Loading weather data...</span>
+          </div>
+        )}
 
-      {weatherData && (
-        <div className="text-center text-sm text-muted-foreground">
-          Weather data for {weatherData.location.city}, {weatherData.location.region}, {weatherData.location.country}
-        </div>
-      )}
+        {/* Error display */}
+        {error && (
+          <Card className="mb-4 border-red-500">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-red-500">
+                <span className="text-lg">⚠️</span>
+                <span>{error}</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col lg:flex-row gap-6 justify-center">
-          {/* Calendar */}
-          <div className="flex justify-center lg:justify-start">
-            <Calendar
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column: Calendar */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span>📅</span>
+                <span>Calendar</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex justify-center">
+              <Calendar
               mode="single"
               selected={selectedDate}
               onSelect={handleDayClick}
@@ -372,174 +393,164 @@ export default function Planner() {
                 },
               }}
             />
-          </div>
-          
-          {/* Weather Info Box */}
-          {selectedDate && (
-            <Card className="lg:col-span-1 shadow-lg h-fit">
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  {selectedDate.toLocaleDateString("en-US", {
-                    weekday: "long",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {selectedWeather ? (
-                  <>
-                    {/* Temperature */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
-                        <Sun className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                      </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Temperature</div>
-                        <div className="text-lg font-semibold">
-                          {Math.round(selectedWeather.temp_min)}°F - {Math.round(selectedWeather.temp_max)}°F
-                        </div>
+            </CardContent>
+          </Card>
+
+          {/* Middle Column: Today's Weather */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span>🌤️</span>
+                <span>
+                  {selectedDate 
+                    ? selectedDate.toDateString() === new Date().toDateString()
+                      ? "Today's Weather"
+                      : `Weather for ${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                    : "Weather"}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {selectedWeather ? (
+                <>
+                  {/* Temperature */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
+                      <Sun className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Temperature</div>
+                      <div className="text-lg font-semibold">
+                        {Math.round(selectedWeather.temp_min)}°F - {Math.round(selectedWeather.temp_max)}°F
                       </div>
                     </div>
+                  </div>
 
-                    {/* Rain Probability */}
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  {/* Rain Probability */}
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      selectedWeather.rain_probability > 0 
+                        ? 'bg-blue-100 dark:bg-blue-900/20' 
+                        : 'bg-gray-100 dark:bg-gray-800'
+                    }`}>
+                      <Droplets className={`h-5 w-5 ${
                         selectedWeather.rain_probability > 0 
-                          ? 'bg-blue-100 dark:bg-blue-900/20' 
-                          : 'bg-gray-100 dark:bg-gray-800'
-                      }`}>
-                        <Droplets className={`h-5 w-5 ${
-                          selectedWeather.rain_probability > 0 
-                            ? 'text-blue-600 dark:text-blue-400' 
-                            : 'text-gray-400'
-                        }`} />
-                      </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Rain Chance</div>
-                        <div className="text-lg font-semibold">
-                          {selectedWeather.rain_probability}%
-                        </div>
+                          ? 'text-blue-600 dark:text-blue-400' 
+                          : 'text-gray-400'
+                      }`} />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Rain Chance</div>
+                      <div className="text-lg font-semibold">
+                        {selectedWeather.rain_probability}%
                       </div>
                     </div>
+                  </div>
 
-                    {/* Precipitation */}
-                    {selectedWeather.precipitation > 0 && (
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
-                          <Droplets className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div>
-                          <div className="text-sm text-muted-foreground">Expected Rainfall</div>
-                          <div className="text-lg font-semibold">
-                            {selectedWeather.precipitation.toFixed(1)} mm
+                  {/* Weather Condition */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-900/20 flex items-center justify-center">
+                      {getWeatherIcon(selectedWeather.weather_code, 20)}
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Conditions</div>
+                      <div className="text-lg font-semibold">
+                        {selectedWeather.weather_description}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Wind Speed */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900/20 flex items-center justify-center">
+                      <Wind className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Max Wind Speed</div>
+                      <div className="text-lg font-semibold">
+                        {Math.round(selectedWeather.wind_speed_max)} mph
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Cloud className="h-12 w-12 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    {weatherData ? "No weather data for this date" : "Fetch weather data to see forecast"}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Right Column: Tasks */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span>📋</span>
+                <span>
+                  {selectedDate 
+                    ? selectedDate.toDateString() === new Date().toDateString()
+                      ? "Today's Tasks"
+                      : `Tasks for ${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                    : "Tasks"}
+                </span>
+                {selectedTasks && selectedTasks.tasks.length > 0 && (
+                  <span className="text-sm bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2 py-1 rounded ml-auto">
+                    {selectedTasks.tasks.length}
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {selectedTasks ? (
+                <Accordion type="multiple" className="w-full">
+                  {selectedTasks.tasks.length > 0 ? (
+                    selectedTasks.tasks.map((task, idx) => (
+                      <AccordionItem key={idx} value={`task-${idx}`} className="border-l-4 border-l-green-500">
+                        <AccordionTrigger className="text-sm font-medium hover:no-underline py-3 px-3">
+                          <span className="text-left">{task}</span>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-3 pb-3">
+                          <div className="space-y-2 pl-4 text-sm">
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">Reason:</p>
+                              <p className="text-xs">{selectedTasks.reason}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">Weather Consideration:</p>
+                              <p className="text-xs">{selectedTasks.weather_consideration}</p>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Weather Condition */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-900/20 flex items-center justify-center">
-                        {getWeatherIcon(selectedWeather.weather_code, 20)}
-                      </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Conditions</div>
-                        <div className="text-lg font-semibold">
-                          {selectedWeather.weather_description}
-                        </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))
+                  ) : (
+                    <div className="text-center py-6">
+                      <p className="text-sm text-muted-foreground italic mb-2">No tasks scheduled for this date</p>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p><strong>Reason:</strong> {selectedTasks.reason}</p>
                       </div>
                     </div>
-
-                    {/* Wind Speed */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900/20 flex items-center justify-center">
-                        <Wind className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-                      </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Max Wind Speed</div>
-                        <div className="text-lg font-semibold">
-                          {Math.round(selectedWeather.wind_speed_max)} mph
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* UV Index */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center">
-                        <Sun className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-                      </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground">UV Index</div>
-                        <div className="text-lg font-semibold">
-                          {selectedWeather.uv_index_max.toFixed(1)}
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                ) : weatherData ? (
-                  <div className="text-sm text-muted-foreground text-center py-4">
-                    No weather data available for this date
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground text-center py-4">
-                    Click "Fetch Weather Data" to see weather information
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Tasks Box */}
-          {selectedDate && selectedTasks && (
-            <Card className="lg:col-span-1 shadow-lg h-fit">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  📋 Tasks for This Day
-                  {selectedTasks.tasks.length > 0 && (
-                    <span className="text-sm bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2 py-1 rounded">
-                      {selectedTasks.tasks.length}
-                    </span>
                   )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {selectedTasks.tasks.length > 0 ? (
-                  <>
-                    <ul className="list-disc list-inside space-y-2 text-sm">
-                      {selectedTasks.tasks.map((task, idx) => (
-                        <li key={idx} className="text-foreground">{task}</li>
-                      ))}
-                    </ul>
-                    <div className="pt-3 border-t space-y-2">
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground mb-1">Reason:</p>
-                        <p className="text-sm">{selectedTasks.reason}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground mb-1">Weather Consideration:</p>
-                        <p className="text-sm">{selectedTasks.weather_consideration}</p>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm text-muted-foreground italic">No tasks scheduled for this day</p>
-                    <div className="pt-3 border-t">
-                      <p className="text-xs font-semibold text-muted-foreground mb-1">Reason:</p>
-                      <p className="text-sm">{selectedTasks.reason}</p>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                </Accordion>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Loader2 className={`h-12 w-12 text-muted-foreground mb-2 ${isGeneratingTwoWeek ? 'animate-spin' : ''}`} />
+                  <p className="text-sm text-muted-foreground">
+                    {twoWeekSchedule ? "No tasks for this date" : "Generate schedule to see tasks"}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Schedule Box */}
-        <Card className="w-full shadow-lg">
-          {!twoWeekSchedule && !annualPlan ? (
-            <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
+        {/* Generate Schedule Button */}
+        {!twoWeekSchedule && !annualPlan && (
+          <Card className="shadow-lg mt-6">
+            <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
               <Button 
                 size="lg" 
                 className="gap-2"
@@ -549,10 +560,10 @@ export default function Planner() {
                 {(isGeneratingTwoWeek || isGeneratingAnnual) ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span className="text-lg">Generating Schedules...</span>
+                    <span className="text-lg">Generating AI Schedule...</span>
                   </>
                 ) : (
-                  <span className="text-lg">Generate Schedule with AI</span>
+                  <span className="text-lg">🤖 Generate Schedule with AI</span>
                 )}
               </Button>
               {!weatherData && (
@@ -561,7 +572,18 @@ export default function Planner() {
                 </p>
               )}
             </CardContent>
-          ) : (
+          </Card>
+        )}
+
+        {/* Schedule Box */}
+        {(twoWeekSchedule || annualPlan) && (
+          <Card className="w-full shadow-lg mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span>📊</span>
+                <span>Farming Schedules</span>
+              </CardTitle>
+            </CardHeader>
             <CardContent className="p-4">
               <Accordion type="multiple" className="w-full space-y-3">
                 {/* 2-Week Plan Accordion */}
@@ -717,9 +739,8 @@ export default function Planner() {
                 </Button>
               </div>
             </CardContent>
-          )}
-        </Card>
-      </div>
+          </Card>
+        )}
       </div>
     </div>
   )
