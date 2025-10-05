@@ -162,6 +162,9 @@ export default function DetectorPage() {
     alternatives: false,
   });
 
+  // Add a flag to track if we should auto-analyze
+  const [shouldAutoAnalyze, setShouldAutoAnalyze] = useState(false);
+
   // Check for captured image from live mode on mount
   useEffect(() => {
     const capturedImage = sessionStorage.getItem("capturedImage");
@@ -173,15 +176,8 @@ export default function DetectorPage() {
       // Clear from sessionStorage
       sessionStorage.removeItem("capturedImage");
 
-      // Trigger auto-analysis flag
-      setTimeout(() => {
-        const analyzeBtn = document.querySelector(
-          "[data-analyze-btn]"
-        ) as HTMLButtonElement;
-        if (analyzeBtn) {
-          analyzeBtn.click();
-        }
-      }, 1000);
+      // Set flag to trigger auto-analysis
+      setShouldAutoAnalyze(true);
     }
   }, []);
 
@@ -857,6 +853,19 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
     processNextStep();
   };
 
+  // Auto-analyze when image is ready from live mode
+  useEffect(() => {
+    if (shouldAutoAnalyze && base64String) {
+      console.log("🚀 Auto-starting analysis with captured image...");
+      setShouldAutoAnalyze(false);
+      // Give a small delay to ensure UI is ready
+      setTimeout(() => {
+        handleAnalyze();
+      }, 500);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldAutoAnalyze, base64String]);
+
   return (
     <div className="min-h-screen p-8 bg-background relative">
       {/* Completion Notification */}
@@ -1003,7 +1012,7 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
 
                 <Button
                   onClick={handleAnalyze}
-                  disabled={!imageFile || isAnalyzing}
+                  disabled={(!imageFile && !base64String) || isAnalyzing}
                   className="w-full"
                   size="lg"
                 >
