@@ -32,6 +32,7 @@ interface AnalysisResultsProps {
   loadingPrevention: boolean;
   loadingAlternatives: boolean;
   extractedTerms: ExtractedTerm[];
+  isExtractingTerms: boolean;
 }
 
 export default function AnalysisResults({
@@ -49,6 +50,7 @@ export default function AnalysisResults({
   loadingPrevention,
   loadingAlternatives,
   extractedTerms,
+  isExtractingTerms,
 }: AnalysisResultsProps) {
   const isHealthy = apiResults?.prediction?.disease?.toLowerCase() === "healthy";
   const isLowConfidence = apiResults?.prediction && apiResults.prediction.confidence_percentage < 80;
@@ -131,16 +133,28 @@ export default function AnalysisResults({
         </div>
 
         {/* Main Content Accordion */}
-        <Accordion type="multiple" className="w-full" defaultValue={["description", "symptoms", "treatment", "prevention"]}>
+        <Accordion type="multiple" className="w-full">
           {/* Pesticides Glossary - Show on top ONLY if NOT healthy */}
-          {extractedTerms.filter(t => t.category === 'pesticide').length > 0 && !isHealthy && (
+          {((extractedTerms.filter(t => t.category === 'pesticide').length > 0) || isExtractingTerms) && 
+           apiResults?.prediction?.disease?.toLowerCase() !== 'healthy' && (
             <AccordionItem value="pesticides-glossary" className="border-l-4 border-l-red-500">
               <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full">
                   <span className="text-red-700 dark:text-red-400">Pesticides</span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    ({extractedTerms.filter(t => t.category === 'pesticide').length} term{extractedTerms.filter(t => t.category === 'pesticide').length !== 1 ? 's' : ''})
-                  </span>
+                  {isExtractingTerms ? (
+                    <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full animate-pulse">
+                      Generating...
+                    </span>
+                  ) : extractedTerms.filter(t => t.category === 'pesticide').length > 0 ? (
+                    <>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({extractedTerms.filter(t => t.category === 'pesticide').length} term{extractedTerms.filter(t => t.category === 'pesticide').length !== 1 ? 's' : ''})
+                      </span>
+                      <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full ml-auto">
+                        Generated
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               </AccordionTrigger>
               <AccordionContent>
@@ -176,14 +190,26 @@ export default function AnalysisResults({
           )}
 
           {/* Fungicides Glossary - Show on top ONLY if NOT healthy */}
-          {extractedTerms.filter(t => t.category === 'fungicide').length > 0 && !isHealthy && (
+          {((extractedTerms.filter(t => t.category === 'fungicide').length > 0) || isExtractingTerms) && 
+           apiResults?.prediction?.disease?.toLowerCase() !== 'healthy' && (
             <AccordionItem value="fungicides-glossary-top" className="border-l-4 border-l-orange-500">
               <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full">
                   <span className="text-orange-700 dark:text-orange-400">Fungicides</span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    ({extractedTerms.filter(t => t.category === 'fungicide').length} term{extractedTerms.filter(t => t.category === 'fungicide').length !== 1 ? 's' : ''})
-                  </span>
+                  {isExtractingTerms ? (
+                    <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full animate-pulse">
+                      Generating...
+                    </span>
+                  ) : extractedTerms.filter(t => t.category === 'fungicide').length > 0 ? (
+                    <>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({extractedTerms.filter(t => t.category === 'fungicide').length} term{extractedTerms.filter(t => t.category === 'fungicide').length !== 1 ? 's' : ''})
+                      </span>
+                      <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full ml-auto">
+                        Generated
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               </AccordionTrigger>
               <AccordionContent>
@@ -221,7 +247,20 @@ export default function AnalysisResults({
           {/* Description */}
           <AccordionItem value="description">
             <AccordionTrigger className="text-base font-semibold hover:no-underline">
-              {isHealthy ? "Health Overview" : "Description"}
+              <div className="flex items-center gap-2 w-full">
+                <span>
+                  {isHealthy ? "Health Overview" : "Description"}
+                </span>
+                {loadingInfo || loadingCauses ? (
+                  <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full animate-pulse ml-auto">
+                    Generating...
+                  </span>
+                ) : diseaseInfo && diseaseCauses ? (
+                  <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full ml-auto">
+                    Generated
+                  </span>
+                ) : null}
+              </div>
             </AccordionTrigger>
             <AccordionContent>
               <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
@@ -268,7 +307,20 @@ export default function AnalysisResults({
           {/* Key Symptoms to Check / Health Indicators */}
           <AccordionItem value="symptoms">
             <AccordionTrigger className="text-base font-semibold hover:no-underline">
-              {isHealthy ? "Signs of a Healthy Plant" : "Key Symptoms to Check"}
+              <div className="flex items-center gap-2 w-full">
+                <span>
+                  {isHealthy ? "Signs of a Healthy Plant" : "Key Symptoms to Check"}
+                </span>
+                {loadingSymptoms ? (
+                  <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full animate-pulse ml-auto">
+                    Generating...
+                  </span>
+                ) : diseaseSymptoms ? (
+                  <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full ml-auto">
+                    Generated
+                  </span>
+                ) : null}
+              </div>
             </AccordionTrigger>
             <AccordionContent>
               <div className="bg-muted/30 p-4 rounded-lg border">
@@ -290,7 +342,20 @@ export default function AnalysisResults({
           {/* Recommended Treatment Plan / Maintenance Plan */}
           <AccordionItem value="treatment">
             <AccordionTrigger className="text-base font-semibold hover:no-underline">
-              {isHealthy ? "Recommended Maintenance Plan" : "Recommended Treatment Plan"}
+              <div className="flex items-center gap-2 w-full">
+                <span>
+                  {isHealthy ? "Recommended Maintenance Plan" : "Recommended Treatment Plan"}
+                </span>
+                {loadingTreatment ? (
+                  <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full animate-pulse ml-auto">
+                    Generating...
+                  </span>
+                ) : diseaseTreatment ? (
+                  <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full ml-auto">
+                    Generated
+                  </span>
+                ) : null}
+              </div>
             </AccordionTrigger>
             <AccordionContent>
               <div
@@ -322,7 +387,20 @@ export default function AnalysisResults({
           {/* Preventive Measures / Best Practices */}
           <AccordionItem value="prevention">
             <AccordionTrigger className="text-base font-semibold hover:no-underline">
-              {isHealthy ? "Best Practices to Stay Healthy" : "Preventive Measures"}
+              <div className="flex items-center gap-2 w-full">
+                <span>
+                  {isHealthy ? "Best Practices to Stay Healthy" : "Preventive Measures"}
+                </span>
+                {loadingPrevention ? (
+                  <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full animate-pulse ml-auto">
+                    Generating...
+                  </span>
+                ) : diseasePrevention ? (
+                  <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full ml-auto">
+                    Generated
+                  </span>
+                ) : null}
+              </div>
             </AccordionTrigger>
             <AccordionContent>
               <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900">
@@ -345,7 +423,18 @@ export default function AnalysisResults({
           {isLowConfidence && (
             <AccordionItem value="alternatives">
               <AccordionTrigger className="text-base font-semibold hover:no-underline">
-                Alternative Possibilities
+                <div className="flex items-center gap-2 w-full">
+                  <span>Alternative Possibilities</span>
+                  {loadingAlternatives ? (
+                    <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full animate-pulse ml-auto">
+                      Generating...
+                    </span>
+                  ) : diseaseAlternatives ? (
+                    <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full ml-auto">
+                      Generated
+                    </span>
+                  ) : null}
+                </div>
               </AccordionTrigger>
               <AccordionContent>
                 <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-900">
@@ -367,8 +456,8 @@ export default function AnalysisResults({
         </Accordion>
 
         {/* Recommendations Section Heading */}
-        {(extractedTerms.filter(t => ['treatment', 'nutrient', 'practice', 'condition'].includes(t.category)).length > 0 || 
-          (isHealthy && extractedTerms.filter(t => ['pesticide', 'fungicide'].includes(t.category)).length > 0)) && (
+        {(isExtractingTerms || extractedTerms.filter(t => ['treatment', 'nutrient', 'practice', 'condition'].includes(t.category)).length > 0 || 
+          (apiResults?.prediction?.disease?.toLowerCase() === 'healthy' && extractedTerms.filter(t => ['pesticide', 'fungicide'].includes(t.category)).length > 0)) && (
           <div className="mt-8 mb-4">
             <h3 className="text-lg font-bold text-foreground">Recommendations</h3>
           </div>
@@ -377,7 +466,7 @@ export default function AnalysisResults({
         {/* Recommendations Accordion */}
         <Accordion type="multiple" className="w-full">
           {/* Pesticides Glossary - In Recommendations when Healthy */}
-          {extractedTerms.filter(t => t.category === 'pesticide').length > 0 && isHealthy && (
+          {((extractedTerms.filter(t => t.category === 'pesticide').length > 0) || isExtractingTerms) && apiResults?.prediction?.disease?.toLowerCase() === 'healthy' && (
             <AccordionItem value="pesticides-glossary-rec" className="border-l-4 border-l-red-500">
               <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
                 <div className="flex items-center gap-2">
@@ -420,7 +509,7 @@ export default function AnalysisResults({
           )}
 
           {/* Fungicides Glossary - In Recommendations when Healthy */}
-          {extractedTerms.filter(t => t.category === 'fungicide').length > 0 && isHealthy && (
+          {((extractedTerms.filter(t => t.category === 'fungicide').length > 0) || isExtractingTerms) && apiResults?.prediction?.disease?.toLowerCase() === 'healthy' && (
             <AccordionItem value="fungicides-glossary-rec" className="border-l-4 border-l-orange-500">
               <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
                 <div className="flex items-center gap-2">
@@ -463,14 +552,25 @@ export default function AnalysisResults({
           )}
 
           {/* Treatments Glossary */}
-          {extractedTerms.filter(t => t.category === 'treatment').length > 0 && (
+          {((extractedTerms.filter(t => t.category === 'treatment').length > 0) || isExtractingTerms) && (
             <AccordionItem value="treatments-glossary" className="border-l-4 border-l-blue-500">
               <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full">
                   <span className="text-blue-700 dark:text-blue-400">Treatments</span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    ({extractedTerms.filter(t => t.category === 'treatment').length} term{extractedTerms.filter(t => t.category === 'treatment').length !== 1 ? 's' : ''})
-                  </span>
+                  {isExtractingTerms ? (
+                    <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full animate-pulse">
+                      Generating...
+                    </span>
+                  ) : extractedTerms.filter(t => t.category === 'treatment').length > 0 ? (
+                    <>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({extractedTerms.filter(t => t.category === 'treatment').length} term{extractedTerms.filter(t => t.category === 'treatment').length !== 1 ? 's' : ''})
+                      </span>
+                      <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full ml-auto">
+                        Generated
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               </AccordionTrigger>
               <AccordionContent>
@@ -506,14 +606,25 @@ export default function AnalysisResults({
           )}
 
           {/* Nutrients Glossary */}
-          {extractedTerms.filter(t => t.category === 'nutrient').length > 0 && (
+          {((extractedTerms.filter(t => t.category === 'nutrient').length > 0) || isExtractingTerms) && (
             <AccordionItem value="nutrients-glossary" className="border-l-4 border-l-green-500">
               <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full">
                   <span className="text-green-700 dark:text-green-400">Nutrients</span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    ({extractedTerms.filter(t => t.category === 'nutrient').length} term{extractedTerms.filter(t => t.category === 'nutrient').length !== 1 ? 's' : ''})
-                  </span>
+                  {isExtractingTerms ? (
+                    <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full animate-pulse">
+                      Generating...
+                    </span>
+                  ) : extractedTerms.filter(t => t.category === 'nutrient').length > 0 ? (
+                    <>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({extractedTerms.filter(t => t.category === 'nutrient').length} term{extractedTerms.filter(t => t.category === 'nutrient').length !== 1 ? 's' : ''})
+                      </span>
+                      <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full ml-auto">
+                        Generated
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               </AccordionTrigger>
               <AccordionContent>
@@ -549,14 +660,25 @@ export default function AnalysisResults({
           )}
 
           {/* Practices Glossary */}
-          {extractedTerms.filter(t => t.category === 'practice').length > 0 && (
+          {((extractedTerms.filter(t => t.category === 'practice').length > 0) || isExtractingTerms) && (
             <AccordionItem value="practices-glossary" className="border-l-4 border-l-purple-500">
               <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full">
                   <span className="text-purple-700 dark:text-purple-400">Practices</span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    ({extractedTerms.filter(t => t.category === 'practice').length} term{extractedTerms.filter(t => t.category === 'practice').length !== 1 ? 's' : ''})
-                  </span>
+                  {isExtractingTerms ? (
+                    <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full animate-pulse">
+                      Generating...
+                    </span>
+                  ) : extractedTerms.filter(t => t.category === 'practice').length > 0 ? (
+                    <>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({extractedTerms.filter(t => t.category === 'practice').length} term{extractedTerms.filter(t => t.category === 'practice').length !== 1 ? 's' : ''})
+                      </span>
+                      <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full ml-auto">
+                        Generated
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               </AccordionTrigger>
               <AccordionContent>
@@ -592,14 +714,25 @@ export default function AnalysisResults({
           )}
 
           {/* Conditions Glossary */}
-          {extractedTerms.filter(t => t.category === 'condition').length > 0 && (
+          {((extractedTerms.filter(t => t.category === 'condition').length > 0) || isExtractingTerms) && (
             <AccordionItem value="conditions-glossary" className="border-l-4 border-l-gray-500">
               <AccordionTrigger className="text-base font-semibold hover:no-underline pl-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full">
                   <span className="text-gray-700 dark:text-gray-400">Conditions</span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    ({extractedTerms.filter(t => t.category === 'condition').length} term{extractedTerms.filter(t => t.category === 'condition').length !== 1 ? 's' : ''})
-                  </span>
+                  {isExtractingTerms ? (
+                    <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-full animate-pulse">
+                      Generating...
+                    </span>
+                  ) : extractedTerms.filter(t => t.category === 'condition').length > 0 ? (
+                    <>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({extractedTerms.filter(t => t.category === 'condition').length} term{extractedTerms.filter(t => t.category === 'condition').length !== 1 ? 's' : ''})
+                      </span>
+                      <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full ml-auto">
+                        Generated
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               </AccordionTrigger>
               <AccordionContent>

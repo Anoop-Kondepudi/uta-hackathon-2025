@@ -1537,6 +1537,7 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
               loadingPrevention={loadingPrevention}
               loadingAlternatives={loadingAlternatives}
               extractedTerms={extractedTerms}
+              isExtractingTerms={isExtractingTerms}
             />
           )}
         </div>
