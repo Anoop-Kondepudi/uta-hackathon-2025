@@ -5,3 +5,4 @@ fastai
 torch
 torchvision
 pillow
+requests

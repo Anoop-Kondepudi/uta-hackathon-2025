@@ -197,8 +197,61 @@ async def predict_disease_base64(data: Dict[str, str]):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
+@app.get("/weather")
+async def get_weather_data():
+    """
+    Get weather forecast for the next 16 days based on user's location.
+    Returns temperature ranges and rain probability for each day.
+    """
+    try:
+        from weather import get_location, get_weather, get_weather_description
+        
+        print("🌍 Fetching location...")
+        location = get_location()
+        
+        if not location:
+            raise HTTPException(status_code=500, detail="Could not determine location")
+        
+        print(f"📍 Location: {location['city']}, {location['country']}")
+        print("☁️ Fetching weather data...")
+        
+        weather_data = get_weather(location['latitude'], location['longitude'])
+        
+        if not weather_data:
+            raise HTTPException(status_code=500, detail="Could not fetch weather data")
+        
+        # Format the response
+        daily = weather_data['daily']
+        forecast = []
+        
+        for i in range(len(daily['time'])):
+            date = daily['time'][i]
+            forecast.append({
+                'date': date,
+                'temp_max': daily['temperature_2m_max'][i],
+                'temp_min': daily['temperature_2m_min'][i],
+                'rain_probability': daily['precipitation_probability_max'][i],
+                'precipitation': daily['precipitation_sum'][i],
+                'weather_code': daily['weather_code'][i],
+                'weather_description': get_weather_description(daily['weather_code'][i]),
+                'wind_speed_max': daily['wind_speed_10m_max'][i],
+                'uv_index_max': daily['uv_index_max'][i]
+            })
+        
+        return {
+            'location': location,
+            'current': weather_data['current'],
+            'forecast': forecast
+        }
+        
+    except Exception as e:
+        print(f"❌ Weather error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Weather error: {str(e)}")
+
 if __name__ == "__main__":
     print("🚀 Starting Mango Disease Detection API...")
-    print("📍 API will be available at: http://localhost:8001")
-    print("📖 API docs will be available at: http://localhost:8001/docs")
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    print("📍 API will be available at: http://localhost:8000")
+    print("📖 API docs will be available at: http://localhost:8000/docs")
+    uvicorn.run(app, host="0.0.0.0", port=8000)
