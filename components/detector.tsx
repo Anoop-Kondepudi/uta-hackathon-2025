@@ -964,46 +964,8 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
         </div>
       )}
 
-      {/* Term Extraction Notification */}
-      {isExtractingTerms && (
-        <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-top duration-300">
-          <div className="bg-blue-50 dark:bg-blue-950 border-2 border-blue-200 dark:border-blue-800 rounded-lg shadow-lg p-3 flex items-center gap-3 max-w-sm">
-            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
-                Extracting Terms...
-              </p>
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                Highlighting technical terms
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Extracting Terms Notification - Centered and Prominent */}
-      {isExtractingTerms && showResults && (
-        <div className="fixed inset-0 z-40 flex items-start justify-center pt-32 pointer-events-none">
-          <div className="bg-gradient-to-r from-purple-500 to-indigo-600 dark:from-purple-600 dark:to-indigo-700 border-2 border-purple-300 dark:border-purple-500 rounded-xl shadow-2xl p-6 animate-in zoom-in-95 duration-300 max-w-md pointer-events-auto">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
-              </div>
-              <div className="text-white">
-                <p className="text-lg font-bold mb-1">
-                  Extracting Key Terms...
-                </p>
-                <p className="text-sm text-purple-100">
-                  Analyzing content to identify technical terms and definitions
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Terms Extracted Success Notification */}
-      {showTermsNotification && !isExtractingTerms && extractedTerms.length > 0 && showResults && (
+      {/* Terms Extracted Success Notification - Only show when complete notification is gone */}
+      {showTermsNotification && !isExtractingTerms && extractedTerms.length > 0 && showResults && !showCompleteNotification && (
         <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-top duration-300">
           <div className="bg-purple-50 dark:bg-purple-950 border-2 border-purple-200 dark:border-purple-800 rounded-lg shadow-lg p-3 flex items-center gap-3 max-w-sm">
             <CheckCircle2 className="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0" />
