@@ -180,14 +180,58 @@ export default function DetectorPage() {
     setIsDragging(false);
   }, []);
 
-  // Typing animation function
-  const typeText = async (text: string, setter: (val: string) => void) => {
+  // Format text with markdown-style formatting
+  const formatText = (text: string): string => {
+    // Convert **bold** to <strong>
+    let formatted = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Remove standalone asterisks (bullets without proper formatting)
+    formatted = formatted.replace(/^\* /gm, '• ');
+    formatted = formatted.replace(/\n\* /g, '\n• ');
+    
+    // Add spacing after numbered list items (1. 2. 3. etc.)
+    // This adds a blank line after each numbered point for better readability
+    formatted = formatted.replace(/(\d+\.\s.*?)(\n)(\d+\.)/g, '$1\n\n$3');
+    
+    // Convert line breaks
+    formatted = formatted.replace(/\n/g, '<br/>');
+    
+    return formatted;
+  };
+
+  // Typing animation with reliable timing using requestAnimationFrame
+  const typeText = (text: string, setter: (val: string) => void) => {
     setter(""); // Clear previous content
-    const words = text.split(" ");
-    for (let i = 0; i < words.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 30)); // 30ms per word
-      setter(words.slice(0, i + 1).join(" "));
-    }
+    
+    const maxDuration = 2500; // 2.5 seconds max
+    const totalChars = text.length;
+    const startTime = performance.now();
+    
+    console.log(`🎬 Starting to type ${totalChars} chars (max ${maxDuration}ms)`);
+    
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      
+      // Calculate how many characters should be shown based on elapsed time
+      const progress = Math.min(elapsed / maxDuration, 1); // 0 to 1
+      const charsToShow = Math.floor(progress * totalChars);
+      
+      if (charsToShow <= totalChars) {
+        const substring = text.substring(0, charsToShow);
+        const formatted = formatText(substring);
+        setter(formatted);
+        
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          // Final update with complete text
+          setter(formatText(text));
+          console.log(`✅ Completed in ${(elapsed / 1000).toFixed(2)}s`);
+        }
+      }
+    };
+    
+    requestAnimationFrame(animate);
   };
 
   // Generate AI content for each section
@@ -198,17 +242,24 @@ export default function DetectorPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `What is ${diseaseName}? Provide a concise, in-depth explanation in 2-5 sentences. Focus on what it is, how it affects mango plants, and its key characteristics. No fluff, just essential information.`
+          prompt: `What is ${diseaseName} in mango plants? 
+
+Provide a concise, in-depth explanation in 2-5 sentences. Focus on:
+- What it is (pathogen type, scientific name if relevant)
+- How it affects mango plants
+- Key characteristics
+
+Use **bold** for important terms. Be clear and direct. No fluff.`
         })
       });
       const data = await response.json();
       if (data.success) {
-        await typeText(data.text, setDiseaseInfo);
+        setLoadingInfo(false); // Stop loading before typing starts
+        typeText(data.text, setDiseaseInfo); // Start typing animation
       }
     } catch (error) {
       console.error('Error generating disease info:', error);
       setDiseaseInfo("Failed to generate information.");
-    } finally {
       setLoadingInfo(false);
     }
   };
@@ -220,17 +271,23 @@ export default function DetectorPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `What are the typical causes for ${diseaseName} in mango plants? List 2-4 main causes or conditions that lead to this disease. Be concise and specific.`
+          prompt: `What are the typical causes for ${diseaseName} in mango plants?
+
+Provide 2-4 main causes as a numbered list. Format:
+1. **Cause name**: Brief explanation
+2. **Cause name**: Brief explanation
+
+IMPORTANT: Only use numbers (1. 2. 3.). Do NOT use asterisks (*) or bullets. Use **bold** only for cause names.`
         })
       });
       const data = await response.json();
       if (data.success) {
-        await typeText(data.text, setDiseaseCauses);
+        setLoadingCauses(false);
+        typeText(data.text, setDiseaseCauses);
       }
     } catch (error) {
       console.error('Error generating causes:', error);
       setDiseaseCauses("Failed to generate information.");
-    } finally {
       setLoadingCauses(false);
     }
   };
@@ -242,17 +299,23 @@ export default function DetectorPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `What are the key symptoms to check for ${diseaseName} in mango plants? List 3-5 specific visual indicators that help identify this disease. Be concise and practical.`
+          prompt: `What are the key symptoms to check for ${diseaseName} in mango plants?
+
+List 3-5 specific visual indicators as a numbered list:
+1. **Symptom name**: Clear, concise description
+2. **Symptom name**: Clear, concise description
+
+IMPORTANT: Only use numbers (1. 2. 3.). Do NOT use asterisks (*) or bullets. Use **bold** only for symptom names.`
         })
       });
       const data = await response.json();
       if (data.success) {
-        await typeText(data.text, setDiseaseSymptoms);
+        setLoadingSymptoms(false);
+        typeText(data.text, setDiseaseSymptoms);
       }
     } catch (error) {
       console.error('Error generating symptoms:', error);
       setDiseaseSymptoms("Failed to generate information.");
-    } finally {
       setLoadingSymptoms(false);
     }
   };
@@ -264,17 +327,28 @@ export default function DetectorPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `What is the recommended treatment plan for ${diseaseName} in mango plants? Provide 3-5 actionable steps. Be specific about treatments, applications, and timing. No fluff.`
+          prompt: `What is the recommended treatment plan for ${diseaseName} in mango plants?
+
+Provide 3-5 actionable steps as a numbered list. Use this exact format:
+1. **Step Name**: Detailed description here.
+2. **Step Name**: Detailed description here.
+
+IMPORTANT: 
+- Only use numbers (1. 2. 3.) for the main list
+- Do NOT use asterisks (*) or bullets within descriptions
+- Use **bold** ONLY for step names at the start
+- Be specific about products, application methods, and timing
+- Write in clear sentences without bullet points`
         })
       });
       const data = await response.json();
       if (data.success) {
-        await typeText(data.text, setDiseaseTreatment);
+        setLoadingTreatment(false);
+        typeText(data.text, setDiseaseTreatment);
       }
     } catch (error) {
       console.error('Error generating treatment:', error);
       setDiseaseTreatment("Failed to generate information.");
-    } finally {
       setLoadingTreatment(false);
     }
   };
@@ -286,17 +360,23 @@ export default function DetectorPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `What are the best preventive measures for ${diseaseName} in mango plants? List 3-5 practical prevention strategies. Be concise and actionable.`
+          prompt: `What are the best preventive measures for ${diseaseName} in mango plants?
+
+List 3-5 practical prevention strategies as a numbered list:
+1. **Prevention measure**: Specific actionable advice
+2. **Prevention measure**: Specific actionable advice
+
+IMPORTANT: Only use numbers (1. 2. 3.). Do NOT use asterisks (*) or bullets. Use **bold** only for measure names.`
         })
       });
       const data = await response.json();
       if (data.success) {
-        await typeText(data.text, setDiseasePrevention);
+        setLoadingPrevention(false);
+        typeText(data.text, setDiseasePrevention);
       }
     } catch (error) {
       console.error('Error generating prevention:', error);
       setDiseasePrevention("Failed to generate information.");
-    } finally {
       setLoadingPrevention(false);
     }
   };
@@ -314,22 +394,23 @@ export default function DetectorPage() {
         body: JSON.stringify({
           prompt: `Given these disease detection probabilities for a mango plant: ${probabilitiesText}
 
-The top prediction has moderate confidence. Please:
-1. Acknowledge the model's uncertainty
-2. Describe the top 2-3 most likely alternatives and what distinguishes them
-3. Suggest what signs to look for if the primary diagnosis doesn't seem correct
+The top prediction has moderate confidence. Provide analysis in this format:
 
-Be concise but informative (3-5 sentences total).`
+1. Acknowledge the model's uncertainty (1 sentence)
+2. **Alternative 1 (XX%)**: What distinguishes it and key signs to look for
+3. **Alternative 2 (XX%)**: What distinguishes it and key signs to look for
+
+Be concise but informative. Use **bold** for disease names and percentages.`
         })
       });
       const data = await response.json();
       if (data.success) {
-        await typeText(data.text, setDiseaseAlternatives);
+        setLoadingAlternatives(false);
+        typeText(data.text, setDiseaseAlternatives);
       }
     } catch (error) {
       console.error('Error generating alternatives:', error);
       setDiseaseAlternatives("Failed to generate information.");
-    } finally {
       setLoadingAlternatives(false);
     }
   };
@@ -404,6 +485,23 @@ Be concise but informative (3-5 sentences total).`
         const data = await response.json();
         
         if (response.ok) {
+          // Fire AI content generation immediately after disease prediction
+          const diseaseName = data.prediction?.disease;
+          if (diseaseName) {
+            console.log('🚀 Firing all AI content generation calls...');
+            // Fire all calls at once - they'll update independently
+            generateDiseaseInfo(diseaseName);
+            generateDiseaseCauses(diseaseName);
+            generateDiseaseSymptoms(diseaseName);
+            generateDiseaseTreatment(diseaseName);
+            generateDiseasePrevention(diseaseName);
+            
+            // Generate alternatives if confidence is low
+            if (data.prediction?.confidence_percentage < 80 && data.all_probabilities) {
+              generateDiseaseAlternatives(data.all_probabilities);
+            }
+          }
+          
           return { success: true, data };
         } else {
           return { 
@@ -479,26 +577,10 @@ Be concise but informative (3-5 sentences total).`
             return;
           }
           
-          // Set results and show them
+          // Set results and show them (AI generation already started)
           setApiResults(result.data);
           if (result.success) {
             console.log('API Results:', result.data);
-            
-            // Fire all AI content generation calls asynchronously
-            const diseaseName = result.data.prediction?.disease;
-            if (diseaseName) {
-              // Fire all calls at once - they'll update independently
-              generateDiseaseInfo(diseaseName);
-              generateDiseaseCauses(diseaseName);
-              generateDiseaseSymptoms(diseaseName);
-              generateDiseaseTreatment(diseaseName);
-              generateDiseasePrevention(diseaseName);
-              
-              // Generate alternatives if confidence is low
-              if (result.data.prediction?.confidence_percentage < 80 && result.data.all_probabilities) {
-                generateDiseaseAlternatives(result.data.all_probabilities);
-              }
-            }
           }
           setIsAnalyzing(false);
           setShowResults(true);
@@ -783,30 +865,32 @@ Be concise but informative (3-5 sentences total).`
 
                 {/* Description */}
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Description</h3>
-                  <div className="bg-muted/30 p-4 rounded-lg border space-y-3">
+                  <h3 className="text-base font-semibold text-foreground mb-3">Description</h3>
+                  <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
                     <div>
-                      <h4 className="text-sm font-semibold mb-1">What is {apiResults?.prediction?.disease || 'this disease'}?</h4>
+                      <h4 className="text-sm font-bold text-foreground mb-2">What is {apiResults?.prediction?.disease || 'this disease'}?</h4>
                       {loadingInfo ? (
                         <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
                           ✨ Generating...
                         </p>
                       ) : (
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {diseaseInfo || "Information about this disease will be displayed here."}
-                        </p>
+                        <div 
+                          className="text-sm text-foreground leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: diseaseInfo || "Information about this disease will be displayed here." }}
+                        />
                       )}
                     </div>
                     <div>
-                      <h4 className="text-sm font-semibold mb-1">Typical causes for {apiResults?.prediction?.disease || 'this disease'} are:</h4>
+                      <h4 className="text-sm font-bold text-foreground mb-2">Typical causes for {apiResults?.prediction?.disease || 'this disease'} are:</h4>
                       {loadingCauses ? (
                         <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
                           ✨ Generating...
                         </p>
                       ) : (
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {diseaseCauses || "Causes and conditions that lead to this disease will be displayed here."}
-                        </p>
+                        <div 
+                          className="text-sm text-foreground leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: diseaseCauses || "Causes and conditions that lead to this disease will be displayed here." }}
+                        />
                       )}
                     </div>
                   </div>
@@ -814,48 +898,51 @@ Be concise but informative (3-5 sentences total).`
 
                 {/* Key Symptoms to Check */}
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Key Symptoms to Check</h3>
+                  <h3 className="text-base font-semibold text-foreground mb-3">Key Symptoms to Check</h3>
                   <div className="bg-muted/30 p-4 rounded-lg border">
                     {loadingSymptoms ? (
                       <p className="text-sm text-muted-foreground animate-pulse">
                         ✨ Generating...
                       </p>
                     ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {diseaseSymptoms || "Key symptoms and visual indicators will be displayed here."}
-                      </p>
+                      <div 
+                        className="text-sm text-foreground leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: diseaseSymptoms || "Key symptoms and visual indicators will be displayed here." }}
+                      />
                     )}
                   </div>
                 </div>
 
                 {/* Recommended Treatment Plan */}
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Recommended Treatment Plan</h3>
+                  <h3 className="text-base font-semibold text-foreground mb-3">Recommended Treatment Plan</h3>
                   <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-900">
                     {loadingTreatment ? (
-                      <p className="text-sm leading-relaxed animate-pulse">
+                      <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
                         ✨ Generating...
                       </p>
                     ) : (
-                      <p className="text-sm leading-relaxed">
-                        {diseaseTreatment || "Treatment recommendations and protocols will be displayed here."}
-                      </p>
+                      <div 
+                        className="text-sm text-foreground dark:text-blue-100 leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: diseaseTreatment || "Treatment recommendations and protocols will be displayed here." }}
+                      />
                     )}
                   </div>
                 </div>
 
                 {/* Preventive Measures */}
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Preventive Measures</h3>
+                  <h3 className="text-base font-semibold text-foreground mb-3">Preventive Measures</h3>
                   <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900">
                     {loadingPrevention ? (
-                      <p className="text-sm leading-relaxed animate-pulse">
+                      <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
                         ✨ Generating...
                       </p>
                     ) : (
-                      <p className="text-sm leading-relaxed">
-                        {diseasePrevention || "Preventive measures and best practices will be displayed here."}
-                      </p>
+                      <div 
+                        className="text-sm text-foreground dark:text-green-100 leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: diseasePrevention || "Preventive measures and best practices will be displayed here." }}
+                      />
                     )}
                   </div>
                 </div>
@@ -863,16 +950,17 @@ Be concise but informative (3-5 sentences total).`
                 {/* Alternative Possibilities (only if confidence < 80%) */}
                 {apiResults?.prediction && apiResults.prediction.confidence_percentage < 80 && (
                   <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-2">Alternative Possibilities</h3>
+                    <h3 className="text-base font-semibold text-foreground mb-3">Alternative Possibilities</h3>
                     <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-900">
                       {loadingAlternatives ? (
                         <p className="text-sm text-muted-foreground animate-pulse">
                           ✨ Generating alternative diagnosis analysis...
                         </p>
                       ) : (
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {diseaseAlternatives || "Alternative diagnosis information will be displayed here."}
-                        </p>
+                        <div 
+                          className="text-sm text-foreground dark:text-yellow-100 leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: diseaseAlternatives || "Alternative diagnosis information will be displayed here." }}
+                        />
                       )}
                     </div>
                   </div>
