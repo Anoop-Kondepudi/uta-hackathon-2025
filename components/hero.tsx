@@ -31,12 +31,9 @@ const Hero = () => {
               </p>
             </div>
             <div className="mt-6 flex justify-center gap-3">
-              <Button className="shadow-sm transition-shadow hover:shadow">
-                Start Detection
-              </Button>
               <Link href={"/dashboard"} className="cursor-pointer">
                 <Button variant="outline" className="group">
-                  View Dashboard{" "}
+                  Get Started{" "}
                   <ExternalLink className="ml-2 h-4 transition-transform group-hover:translate-x-0.5" />
                 </Button>
               </Link>

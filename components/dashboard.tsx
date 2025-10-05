@@ -1,10 +1,11 @@
 'use client';
 import { useState } from "react";
-import { Upload, Video } from "lucide-react";
+import { Upload, Video, Calendar } from "lucide-react";
 import DetectorPage from "./detector";
 import LiveMangoPage from "./livemango";
+import Planner from "./planner";
 
-type ActiveTab = "detector" | "live-mango";
+type ActiveTab = "detector" | "live-mango" | "calendar";
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("detector");
@@ -16,11 +17,12 @@ export default function DashboardPage() {
         {/* Conditionally render based on active tab */}
         {activeTab === "detector" && <DetectorPage />}
         {activeTab === "live-mango" && <LiveMangoPage onSwitchToDetector={() => setActiveTab("detector")} />}
+        {activeTab === "calendar" && <Planner />}
       </div>
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-5 left-0 right-0 flex items-center justify-center z-50">
-        <div className="max-w-sm w-auto mx-4 px-3 py-2 bg-background/80 backdrop-blur-lg border border-border shadow-lg rounded-full">
+        <div className="max-w-md w-auto mx-4 px-3 py-2 bg-background/80 backdrop-blur-lg border border-border shadow-lg rounded-full">
           <div className="flex items-center justify-center gap-3">
             {/* Mango Disease Detector Button */}
             <button
@@ -46,6 +48,19 @@ export default function DashboardPage() {
             >
               <Video className="w-5 h-5" />
               <span className="text-xs font-medium">Live Camera</span>
+            </button>
+
+            {/* Calendar Button */}
+            <button
+              onClick={() => setActiveTab("calendar")}
+              className={`cursor-pointer flex flex-col items-center gap-1 px-8 py-2 rounded-full transition-all duration-300 ${
+                activeTab === "calendar"
+                  ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <Calendar className="w-5 h-5" />
+              <span className="text-xs font-medium">Planner</span>
             </button>
           </div>
         </div>

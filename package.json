@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:next\" \"npm run dev:python\" --names \"Next.js,Python\" --prefix-colors \"cyan,yellow\"",
     "dev:next": "next dev --turbopack",
-    "dev:python": "python3.12 backend/main.py",
+    "dev:python": "python backend/main.py",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint"

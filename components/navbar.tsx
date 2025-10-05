@@ -70,18 +70,18 @@ const Navbar = ({
     title: "FarmPro.tech",
   },
   menu = [
-    {
-      title: "About",
-      url: "#",
-    },
-    {
-      title: "Pricing",
-      url: "#",
-    },
-    {
-      title: "Blog",
-      url: "#",
-    },
+    // {
+    //   title: "About",
+    //   url: "#",
+    // },
+    // {
+    //   title: "Pricing",
+    //   url: "#",
+    // },
+    // {
+    //   title: "Blog",
+    //   url: "#",
+    // },
   ],
   auth = {
     login: { title: "Login", url: "/login" },

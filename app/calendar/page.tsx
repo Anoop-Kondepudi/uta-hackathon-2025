@@ -1,4 +1,4 @@
-import Calendar21 from "@/components/calendar-21";
+import Planner from "@/components/planner";
 
 export default function CalendarPage() {
   return (
@@ -16,7 +16,7 @@ export default function CalendarPage() {
 
         {/* Calendar Component */}
         <div className="flex justify-center">
-          <Calendar21 />
+          <Planner />
         </div>
       </div>
     </div>

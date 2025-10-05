@@ -86,7 +86,7 @@ interface AnnualPlanResponse {
   }
 }
 
-export default function Calendar21() {
+export default function Planner() {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(undefined)
   const [weatherData, setWeatherData] = React.useState<WeatherResponse | null>(null)
   const [isLoading, setIsLoading] = React.useState(false)
@@ -99,6 +99,11 @@ export default function Calendar21() {
   const handleDayClick = (date: Date | undefined) => {
     setSelectedDate(date)
   }
+
+  // Auto-fetch weather data on component mount
+  React.useEffect(() => {
+    fetchWeatherData()
+  }, [])
 
   // Get weather icon based on weather code
   const getWeatherIcon = (weatherCode: number, size: number = 16) => {
@@ -291,28 +296,15 @@ export default function Calendar21() {
   }
 
   return (
-    <div className="flex gap-6 flex-col">
-      {/* Fetch Weather Button */}
-      <div className="flex justify-center">
-        <Button 
-          onClick={fetchWeatherData} 
-          disabled={isLoading}
-          size="lg"
-          className="gap-2"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Fetching Weather Data...
-            </>
-          ) : (
-            <>
-              <Cloud className="h-4 w-4" />
-              Fetch Weather Data
-            </>
-          )}
-        </Button>
-      </div>
+    <div className="flex justify-center w-full">
+      <div className="flex gap-6 flex-col max-w-7xl w-full px-4">
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="flex justify-center items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Loading weather data...</span>
+        </div>
+      )}
 
       {error && (
         <div className="text-center text-red-500 text-sm">
@@ -327,9 +319,9 @@ export default function Calendar21() {
       )}
 
       <div className="flex flex-col gap-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="flex flex-col lg:flex-row gap-6 justify-center">
           {/* Calendar */}
-          <div className="lg:col-span-1">
+          <div className="flex justify-center lg:justify-start">
             <Calendar
               mode="single"
               selected={selectedDate}
@@ -727,6 +719,7 @@ export default function Calendar21() {
             </CardContent>
           )}
         </Card>
+      </div>
       </div>
     </div>
   )
