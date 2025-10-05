@@ -1186,99 +1186,24 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* API Results - Raw Data Display */}
-                {apiResults && (
-                  <div className="bg-muted/50 p-4 rounded-lg border-2 border-primary/20">
-                    <h3 className="text-sm font-bold text-primary mb-3">
-                      🤖 AI Model Results (Live)
-                    </h3>
-
-                    {apiResults.error ? (
-                      <div className="bg-destructive/10 border border-destructive rounded-md p-3 space-y-2">
-                        <p className="font-semibold text-destructive flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4" />
-                          {apiResults.error}
-                        </p>
-                        {apiResults.details && (
-                          <p className="text-xs text-muted-foreground">
-                            {apiResults.details}
-                          </p>
-                        )}
-                        {apiResults.instructions && (
-                          <div className="mt-2 p-2 bg-background rounded text-xs">
-                            <p className="font-semibold mb-1">To fix this:</p>
-                            <code className="text-primary">
-                              {apiResults.instructions}
-                            </code>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {/* Main Prediction */}
-                        {apiResults.prediction && (
-                          <div className="bg-background p-3 rounded-md">
-                            <p className="text-xs text-muted-foreground mb-1">
-                              Detected Disease:
-                            </p>
-                            <p className="text-lg font-bold">
-                              {apiResults.prediction.disease}
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Confidence:{" "}
-                              {apiResults.prediction.confidence_percentage?.toFixed(
-                                2
-                              )}
-                              %
-                            </p>
-                          </div>
-                        )}
-
-                        {/* All Probabilities */}
-                        {apiResults.all_probabilities && (
-                          <div className="bg-background p-3 rounded-md">
-                            <p className="text-xs font-semibold mb-2">
-                              All Disease Probabilities:
-                            </p>
-                            <div className="space-y-1 text-xs">
-                              {apiResults.all_probabilities.map(
-                                (item: any, idx: number) => (
-                                  <div
-                                    key={idx}
-                                    className="flex justify-between items-center"
-                                  >
-                                    <span
-                                      className={
-                                        idx === 0 ? "font-semibold" : ""
-                                      }
-                                    >
-                                      {item.disease}
-                                    </span>
-                                    <span
-                                      className={
-                                        idx === 0
-                                          ? "font-semibold text-primary"
-                                          : "text-muted-foreground"
-                                      }
-                                    >
-                                      {item.percentage.toFixed(2)}%
-                                    </span>
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Raw JSON Display */}
-                        <details className="text-xs">
-                          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                            View Raw JSON Response
-                          </summary>
-                          <pre className="mt-2 p-2 bg-muted rounded text-[10px] overflow-auto max-h-40">
-                            {JSON.stringify(apiResults, null, 2)}
-                          </pre>
-                        </details>
+                {/* Error Display (if any) */}
+                {apiResults?.error && (
+                  <div className="bg-destructive/10 border border-destructive rounded-md p-3 space-y-2">
+                    <p className="font-semibold text-destructive flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      {apiResults.error}
+                    </p>
+                    {apiResults.details && (
+                      <p className="text-xs text-muted-foreground">
+                        {apiResults.details}
+                      </p>
+                    )}
+                    {apiResults.instructions && (
+                      <div className="mt-2 p-2 bg-background rounded text-xs">
+                        <p className="font-semibold mb-1">To fix this:</p>
+                        <code className="text-primary">
+                          {apiResults.instructions}
+                        </code>
                       </div>
                     )}
                   </div>
