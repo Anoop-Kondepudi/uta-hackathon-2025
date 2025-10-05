@@ -1,4 +1,4 @@
-import { Book, LayoutTemplate, Menu, Sunset, Trees, Zap } from "lucide-react";
+import { Book, Leaf, Menu, Sunset, Trees, Zap } from "lucide-react";
 
 import {
   Accordion,
@@ -57,71 +57,9 @@ const Navbar = ({
     url: "/",
     src: "https://deifkwefumgah.cloudfront.net/shadcnblocks/block/logos/shadcnblockscom-icon.svg",
     alt: "logo",
-    title: "Template",
+    title: "FarmPro.tech",
   },
   menu = [
-    // { title: "Home", url: "#" },
-    // {
-    //   title: "Products",
-    //   url: "#",
-    //   items: [
-    //     {
-    //       title: "Blog",
-    //       description: "The latest industry news, updates, and info",
-    //       icon: <Book className="size-5 shrink-0" />,
-    //       url: "#",
-    //     },
-    //     {
-    //       title: "Company",
-    //       description: "Our mission is to innovate and empower the world",
-    //       icon: <Trees className="size-5 shrink-0" />,
-    //       url: "#",
-    //     },
-    //     {
-    //       title: "Careers",
-    //       description: "Browse job listing and discover our workspace",
-    //       icon: <Sunset className="size-5 shrink-0" />,
-    //       url: "#",
-    //     },
-    //     {
-    //       title: "Support",
-    //       description:
-    //         "Get in touch with our support team or visit our community forums",
-    //       icon: <Zap className="size-5 shrink-0" />,
-    //       url: "#",
-    //     },
-    //   ],
-    // },
-    // {
-    //   title: "Resources",
-    //   url: "#",
-    //   items: [
-    //     {
-    //       title: "Help Center",
-    //       description: "Get all the answers you need right here",
-    //       icon: <Zap className="size-5 shrink-0" />,
-    //       url: "#",
-    //     },
-    //     {
-    //       title: "Contact Us",
-    //       description: "We are here to help you with any questions you have",
-    //       icon: <Sunset className="size-5 shrink-0" />,
-    //       url: "#",
-    //     },
-    //     {
-    //       title: "Status",
-    //       description: "Check the current status of our services and APIs",
-    //       icon: <Trees className="size-5 shrink-0" />,
-    //       url: "#",
-    //     },
-    //     {
-    //       title: "Terms of Service",
-    //       description: "Our terms and conditions for using our services",
-    //       icon: <Book className="size-5 shrink-0" />,
-    //       url: "#",
-    //     },
-    //   ],
-    // },
     { 
       title: "About", 
       url: "#" 
@@ -154,7 +92,7 @@ const Navbar = ({
                 alt={logo.alt}
               /> */}
               <div className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md">
-                <LayoutTemplate size={20} />
+                <Leaf size={20} />
               </div>
               <span className="font-bold text-lg sm:inline-block">
                 {logo.title}
@@ -171,7 +109,8 @@ const Navbar = ({
           <div className="flex gap-2">
             <ModeToggle />
             <Button asChild variant="outline" size="sm" className="h-9 px-4">
-              <a href={auth.login.url}>{auth.login.title}</a>
+              {/* <a href={auth.login.url}>{auth.login.title}</a> */}
+              <a href="/auth/login">Login</a>
             </Button>
             <Button asChild size="sm" className="h-9 px-4">
               <a href={auth.signup.url}>{auth.signup.title}</a>
