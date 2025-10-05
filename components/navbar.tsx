@@ -24,8 +24,15 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ModeToggle } from "./modetoggle";
-import { useUser } from "@auth0/nextjs-auth0"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { useUser } from "@auth0/nextjs-auth0";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 interface MenuItem {
   title: string;
@@ -63,9 +70,9 @@ const Navbar = ({
     title: "FarmPro.tech",
   },
   menu = [
-    { 
-      title: "About", 
-      url: "#" 
+    {
+      title: "About",
+      url: "#",
     },
     {
       title: "Pricing",
@@ -81,7 +88,6 @@ const Navbar = ({
     signup: { title: "Sign up", url: "/signup" },
   },
 }: NavbarProps) => {
-
   const { user } = useUser();
 
   return (
@@ -136,17 +142,19 @@ const Navbar = ({
                       {user.email}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-red-500">
-                      <a href="/auth/logout">Logout</a>
-                    </DropdownMenuItem>
+                    <a href="/auth/logout"  className="text-red-500">
+                      <DropdownMenuItem>
+                        Logout
+                      </DropdownMenuItem>
+                    </a>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-            ): (
-            <Button asChild variant="outline" size="sm" className="h-9 px-4">
-              <a href="/auth/login">Login</a>
-            </Button>
-          )}
+            ) : (
+              <Button asChild variant="outline" size="sm" className="h-9 px-4">
+                <a href="/auth/login">Login</a>
+              </Button>
+            )}
           </div>
         </nav>
 
