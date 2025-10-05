@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       let errorData;
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         const text = await response.text();
         throw new Error(`Backend returned error: ${response.status} - ${text}`);
       }

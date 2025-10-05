@@ -71,7 +71,7 @@ Return in this exact JSON format:
       // Remove any markdown code blocks if present
       const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
       parsedResponse = JSON.parse(cleanedText);
-    } catch (parseError) {
+    } catch {
       console.error('Failed to parse Gemini response:', text);
       return NextResponse.json(
         { 

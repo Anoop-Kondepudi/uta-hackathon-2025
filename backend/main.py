@@ -17,9 +17,17 @@ from fastapi import FastAPI, UploadFile, HTTPException, File
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-# Load environment variables from .env.local in parent directory
+# Load environment variables from backend .env first
+backend_env = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=backend_env)
+
+# Also load from .env.local in parent directory for compatibility
 env_path = Path(__file__).parent.parent / ".env.local"
 load_dotenv(dotenv_path=env_path)
+
+# Load from .env.production if it exists
+prod_env = Path(__file__).parent.parent / ".env.production"
+load_dotenv(dotenv_path=prod_env)
 
 # Global variable to store the model
 learn = None
@@ -63,7 +71,9 @@ app = FastAPI(title="Mango Disease Detection API", lifespan=lifespan)
 allowed_origins = [
     "http://localhost:3000",
     "http://localhost:3001",
-    "https://uta-hackathon-2025.onrender.com"  # Production URL
+    "https://uta-hackathon-2025.onrender.com",  # Production URL
+    "https://farmpro.tech",
+    "https://www.farmpro.tech"
 ]
 
 # Add any additional origins from environment variable

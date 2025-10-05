@@ -18,7 +18,18 @@ interface ExtractedTerm {
 }
 
 interface AnalysisResultsProps {
-  apiResults: any;
+  apiResults: {
+    predicted_disease?: string;
+    confidence?: number;
+    all_probabilities?: Array<{ disease: string; percentage: number }>;
+    prediction?: {
+      disease: string;
+      confidence_percentage: number;
+    };
+    error?: string;
+    details?: string;
+    instructions?: string;
+  } | null;
   diseaseInfo: string;
   diseaseCauses: string;
   diseaseSymptoms: string;

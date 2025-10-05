@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt, context } = await request.json();
+    const { prompt } = await request.json();
 
     if (!prompt) {
       return NextResponse.json(

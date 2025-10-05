@@ -3,17 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
   Upload,
   Bug,
   ChevronDown,
   ChevronUp,
-  AlertCircle,
   CheckCircle2,
   Camera,
   Video,
@@ -148,14 +141,25 @@ export default function DetectorPage() {
   const [progress, setProgress] = useState(0);
   const [allSteps, setAllSteps] = useState<string[]>([]);
   const [expandedLogs, setExpandedLogs] = useState(false);
-  const [apiResults, setApiResults] = useState<any>(null);
+  const [apiResults, setApiResults] = useState<{
+    predicted_disease?: string;
+    confidence?: number;
+    all_probabilities?: Array<{ disease: string; percentage: number }>;
+    prediction?: {
+      disease: string;
+      confidence_percentage: number;
+    };
+    error?: string;
+    details?: string;
+    instructions?: string;
+  } | null>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
 
   // Camera states
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [cameraError, setCameraError] = useState<string>("");
-  const [isPlantDetected, setIsPlantDetected] = useState<boolean | null>(null);
-  const [hasMultipleLeaves, setHasMultipleLeaves] = useState<boolean>(false);
+  const [, setIsPlantDetected] = useState<boolean | null>(null);
+  const [, setHasMultipleLeaves] = useState<boolean>(false);
   const [requestCount, setRequestCount] = useState(0);
   const [lastResponseTime, setLastResponseTime] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -235,7 +239,7 @@ export default function DetectorPage() {
       completedSections.symptoms &&
       completedSections.treatment &&
       completedSections.prevention &&
-      (apiResults?.prediction?.confidence_percentage >= 80 ||
+      ((apiResults?.prediction?.confidence_percentage ?? 0) >= 80 ||
         completedSections.alternatives);
 
     if (allComplete && showResults && !showCompleteNotification) {
@@ -727,7 +731,7 @@ IMPORTANT: Only use numbers (1. 2. 3.). Do NOT use asterisks (*) or bullets. Use
     }
   };
 
-  const generateDiseaseAlternatives = async (allProbabilities: any[]) => {
+  const generateDiseaseAlternatives = async (allProbabilities: Array<{ disease: string; percentage: number }>) => {
     setLoadingAlternatives(true);
     try {
       const probabilitiesText = allProbabilities
@@ -1118,106 +1122,6 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
 
   return (
     <div className="min-h-screen p-8 bg-background relative">
-      {/* Completion Notification */}
-      {showCompleteNotification && (
-        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top duration-300">
-          <div className="bg-green-50 dark:bg-green-950 border-2 border-green-200 dark:border-green-800 rounded-lg shadow-lg p-3 flex items-center gap-3 max-w-sm">
-            <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-green-900 dark:text-green-100">
-                Analysis Complete
-              </p>
-              <p className="text-xs text-green-700 dark:text-green-300">
-                All sections generated
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Term Extraction Notification */}
-      {isExtractingTerms && (
-        <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-top duration-300">
-          <div className="bg-blue-50 dark:bg-blue-950 border-2 border-blue-200 dark:border-blue-800 rounded-lg shadow-lg p-3 flex items-center gap-3 max-w-sm">
-            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
-                Extracting Terms...
-              </p>
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                Highlighting technical terms
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Terms Extracted Success Notification */}
-      {showTermsNotification && !isExtractingTerms && extractedTerms.length > 0 && showResults && (
-        <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-top duration-300">
-          <div className="bg-purple-50 dark:bg-purple-950 border-2 border-purple-200 dark:border-purple-800 rounded-lg shadow-lg p-3 flex items-center gap-3 max-w-sm">
-            <CheckCircle2 className="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-purple-900 dark:text-purple-100">
-                {extractedTerms.length} Terms Highlighted
-              </p>
-              <p className="text-xs text-purple-700 dark:text-purple-300">
-                Hover over underlined words for details
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Debug Button */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="fixed top-20 right-4 z-50 gap-2"
-        onClick={() => setShowDebug(!showDebug)}
-      >
-        <Bug className="w-4 h-4" />
-        Debug
-      </Button>
-
-      {/* Debug Panel */}
-      {showDebug && (
-        <Card className="fixed top-32 right-4 w-96 max-h-[600px] z-50 shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-lg">Debug: Base64 Output</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {base64String ? (
-              <div className="space-y-3">
-                <div className="relative">
-                  <textarea
-                    readOnly
-                    value={base64String}
-                    className="w-full h-64 p-3 font-mono text-xs bg-muted rounded-lg resize-none"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(base64String);
-                    }}
-                    className="absolute top-2 right-2"
-                  >
-                    Copy
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Length: {base64String.length.toLocaleString()} characters
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                No image uploaded yet
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold">Mango Disease Detector</h1>
@@ -1356,7 +1260,7 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
                           <div>
                             <Camera className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
                             <p className="text-muted-foreground">
-                              Camera is not active. Click "Start Live Mode" to begin.
+                              Camera is not active. Click &quot;Start Live Mode&quot; to begin.
                             </p>
                           </div>
                         </div>

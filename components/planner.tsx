@@ -4,7 +4,7 @@ import * as React from "react"
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Cloud, Droplets, Wind, Sun, Loader2, CloudRain, CloudDrizzle, CloudSnow, CloudFog, CloudLightning, ChevronDown, ChevronUp } from "lucide-react"
+import { Cloud, Droplets, Wind, Sun, Loader2, CloudRain, CloudDrizzle, CloudSnow, CloudFog, CloudLightning } from "lucide-react"
 import {
   Accordion,
   AccordionContent,
@@ -176,7 +176,7 @@ export default function Planner() {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await fetch("http://localhost:8001/weather")
+      const response = await fetch("/api/weather")
       if (!response.ok) {
         throw new Error("Failed to fetch weather data")
       }
@@ -199,7 +199,7 @@ export default function Planner() {
     setIsGeneratingTwoWeek(true)
     setError(null)
     try {
-      const response = await fetch("http://localhost:8001/generate-two-week-schedule", {
+      const response = await fetch("/api/generate-two-week-schedule", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -230,7 +230,7 @@ export default function Planner() {
     setIsGeneratingAnnual(true)
     setError(null)
     try {
-      const response = await fetch("http://localhost:8001/generate-annual-plan", {
+      const response = await fetch("/api/generate-annual-plan", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -546,7 +546,7 @@ export default function Planner() {
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <Loader2 className={`h-12 w-12 text-muted-foreground mb-2 ${isGeneratingTwoWeek ? 'animate-spin' : ''}`} />
                   <p className="text-sm text-muted-foreground">
-                    {twoWeekSchedule ? "No tasks for this date" : "Generate schedule to see tasks"}
+                    {twoWeekSchedule ? "No tasks for this date" : "Generating schedule to see tasks"}
                   </p>
                 </div>
               )}

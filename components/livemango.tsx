@@ -15,15 +15,15 @@ export default function LiveMangoPage({ onSwitchToDetector }: LiveMangoPageProps
   const [showDebug, setShowDebug] = useState(false);
   const [isDescribing, setIsDescribing] = useState(false);
   const [description, setDescription] = useState<string>("");
-  const [isPlantDetected, setIsPlantDetected] = useState<boolean | null>(null);
-  const [hasMultipleLeaves, setHasMultipleLeaves] = useState<boolean>(false);
+  const [, setIsPlantDetected] = useState<boolean | null>(null);
+  const [, setHasMultipleLeaves] = useState<boolean>(false);
   const [requestCount, setRequestCount] = useState(0);
   const [lastResponseTime, setLastResponseTime] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const [consecutiveSingleLeafCount, setConsecutiveSingleLeafCount] = useState(0);
   const [detectionStatus, setDetectionStatus] = useState<'no-leaf' | 'single-leaf' | 'multiple-leaves' | 'initializing'>('initializing');
-  const [capturedImageForAnalysis, setCapturedImageForAnalysis] = useState<string | null>(null);
+  const [, setCapturedImageForAnalysis] = useState<string | null>(null);
   const [shouldNavigateToDetector, setShouldNavigateToDetector] = useState(false);
   const [apiLogs, setApiLogs] = useState<Array<{
     timestamp: string;
@@ -34,7 +34,6 @@ export default function LiveMangoPage({ onSwitchToDetector }: LiveMangoPageProps
   }>>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const captureFrame = (): string | null => {
@@ -344,97 +343,6 @@ export default function LiveMangoPage({ onSwitchToDetector }: LiveMangoPageProps
 
   return (
     <div className="min-h-screen p-8 bg-background relative">
-      {/* Debug Button */}
-      <div className="fixed top-20 right-4 z-50">
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          onClick={() => setShowDebug(!showDebug)}
-        >
-          <Bug className="w-4 h-4" />
-          Debug
-        </Button>
-
-        {/* Debug Dropdown */}
-        {showDebug && (
-          <Card className="mt-2 w-64 shadow-lg">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Debug Tools</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button
-                onClick={captureAndDescribeImage}
-                disabled={!isLiveMode || isDescribing}
-                variant="outline"
-                className="w-full justify-start"
-                size="sm"
-              >
-                <ImageIcon className="w-4 h-4 mr-2" />
-                {isDescribing ? "Analyzing..." : "Describe Image"}
-              </Button>
-
-              <Button
-                onClick={() => setShowLogs(!showLogs)}
-                disabled={!isLiveMode}
-                variant="outline"
-                className="w-full justify-start"
-                size="sm"
-              >
-                <Bug className="w-4 h-4 mr-2" />
-                {showLogs ? "Hide Logs" : "Show Logs"}
-              </Button>
-
-              {description && (
-                <div className="mt-3 p-3 bg-muted rounded-md text-xs">
-                  <p className="font-semibold mb-1">AI Description:</p>
-                  <p className="text-muted-foreground">{description}</p>
-                </div>
-              )}
-
-              {/* API Logs */}
-              {showLogs && (
-                <div className="mt-3 p-3 bg-muted rounded-md text-xs space-y-3">
-                  <p className="font-semibold mb-2">Last 3 API Responses:</p>
-                  {apiLogs.length === 0 ? (
-                    <p className="text-muted-foreground">No logs yet...</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {apiLogs.map((log, index) => (
-                        <div key={index} className="p-2 bg-background rounded border">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-semibold">Request #{log.requestNumber}</span>
-                            <span className="text-muted-foreground">{log.timestamp}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-xs">
-                            <span>Plant Detected:</span>
-                            <span className={`font-semibold ${log.isPlant ? 'text-green-600' : 'text-orange-600'}`}>
-                              {log.isPlant ? '✓ Yes' : '✗ No'}
-                            </span>
-                          </div>
-                          {log.isPlant && (
-                            <div className="flex items-center justify-between text-xs">
-                              <span>Multiple Leaves:</span>
-                              <span className={`font-semibold ${log.hasMultipleLeaves ? 'text-yellow-600' : 'text-green-600'}`}>
-                                {log.hasMultipleLeaves ? '⚠️ Yes' : '✓ No'}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex items-center justify-between text-xs">
-                            <span>Response Time:</span>
-                            <span className="font-semibold">{log.responseTime}ms</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold">Live Mango Monitor</h1>
@@ -468,7 +376,7 @@ export default function LiveMangoPage({ onSwitchToDetector }: LiveMangoPageProps
                       <div>
                         <Camera className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
                         <p className="text-muted-foreground">
-                          Camera is not active. Click "Start Live Mode" to begin.
+                          Camera is not active. Click &quot;Start Live Mode&quot; to begin.
                         </p>
                       </div>
                     </div>
@@ -587,7 +495,7 @@ export default function LiveMangoPage({ onSwitchToDetector }: LiveMangoPageProps
               <ul className="space-y-2 text-sm">
                 <li className="flex items-start gap-2">
                   <span className="text-primary font-bold">1.</span>
-                  <span>Click "Start Live Mode" to activate your camera</span>
+                  <span>Click &quot;Start Live Mode&quot; to activate your camera</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-primary font-bold">2.</span>
@@ -599,7 +507,7 @@ export default function LiveMangoPage({ onSwitchToDetector }: LiveMangoPageProps
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-primary font-bold">4.</span>
-                  <span>Click "Stop Live Mode" when finished</span>
+                  <span>Click &quot;Stop Live Mode&quot; when finished</span>
                 </li>
               </ul>
             </CardContent>
