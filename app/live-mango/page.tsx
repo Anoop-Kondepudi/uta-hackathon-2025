@@ -4,8 +4,20 @@ import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Video, VideoOff, Camera, Bug, Image as ImageIcon } from "lucide-react";
+import { useUser } from "@auth0/nextjs-auth0";
+import { useRouter } from "next/navigation";
 
 export default function LiveMangoPage() {
+
+  const { user, isLoading } = useUser();
+  const router = useRouter();
+  
+    useEffect(() => {
+      if (!isLoading && !user) {
+        router.push("auth/login");
+      }
+    }, [isLoading, user, router]);
+
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [error, setError] = useState<string>("");
   const [showDebug, setShowDebug] = useState(false);

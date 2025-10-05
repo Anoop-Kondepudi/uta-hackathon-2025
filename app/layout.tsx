@@ -15,8 +15,8 @@ const interSans = Inter({
 // });
 
 export const metadata: Metadata = {
-  title: "Template",
-  description: "Created by Shiv Bhakta",
+  title: "FarmPro.tech",
+  description: "AI-Powered Mango Disease Detection",
 };
 
 export default function RootLayout({

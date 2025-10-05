@@ -1,4 +1,5 @@
-import { Book, Leaf, Menu, Sunset, Trees, Zap } from "lucide-react";
+"use client";
+import { Leaf, Menu, User, Mail } from "lucide-react";
 
 import {
   Accordion,
@@ -23,6 +24,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ModeToggle } from "./modetoggle";
+import { useUser } from "@auth0/nextjs-auth0"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
 
 interface MenuItem {
   title: string;
@@ -78,6 +81,9 @@ const Navbar = ({
     signup: { title: "Sign up", url: "/signup" },
   },
 }: NavbarProps) => {
+
+  const { user } = useUser();
+
   return (
     <section className="py-3 px-4 flex justify-center border-b dark:border-input">
       <div className="container">
@@ -106,15 +112,41 @@ const Navbar = ({
               </NavigationMenu>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <ModeToggle />
+            {user ? (
+              <div className="flex items-center">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <img
+                      src={user.picture}
+                      alt="Profile"
+                      className="w-9 h-9 rounded-full mr-2 cursor-pointer"
+                    />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Profile</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem disabled>
+                      <User />
+                      {user.name}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled>
+                      <Mail />
+                      {user.email}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-red-500">
+                      <a href="/auth/logout">Logout</a>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ): (
             <Button asChild variant="outline" size="sm" className="h-9 px-4">
-              {/* <a href={auth.login.url}>{auth.login.title}</a> */}
               <a href="/auth/login">Login</a>
             </Button>
-            <Button asChild size="sm" className="h-9 px-4">
-              <a href={auth.signup.url}>{auth.signup.title}</a>
-            </Button>
+          )}
           </div>
         </nav>
 
