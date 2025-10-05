@@ -119,9 +119,20 @@ export default function Calendar21() {
     }
   }
 
-  // Get weather data for a specific date
+  // Get weather data for a specific date (only within 2-week range)
   const getWeatherForDate = (date: Date): WeatherData | undefined => {
     if (!weatherData) return undefined
+    
+    // Check if date is within 2-week range
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const twoWeeksFromNow = new Date(today)
+    twoWeeksFromNow.setDate(today.getDate() + 14)
+    
+    if (date < today || date >= twoWeeksFromNow) {
+      return undefined
+    }
+    
     const dateString = date.toISOString().split('T')[0]
     return weatherData.forecast.find(day => day.date === dateString)
   }
@@ -172,175 +183,186 @@ export default function Calendar21() {
         </div>
       )}
 
-      <div className="flex gap-6 flex-col lg:flex-row">
-        <div>
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={handleDayClick}
-            numberOfMonths={1}
-            captionLayout="dropdown"
-            disabled={(date) => {
-              const today = new Date()
-              today.setHours(0, 0, 0, 0)
-              const twoWeeksFromNow = new Date(today)
-              twoWeeksFromNow.setDate(today.getDate() + 14)
-              return date < today || date >= twoWeeksFromNow
-            }}
-            defaultMonth={new Date()}
-            className="rounded-lg border shadow-sm [--cell-size:--spacing(11)] md:[--cell-size:--spacing(13)]"
-            formatters={{
-              formatMonthDropdown: (date) => {
-                return date.toLocaleString("default", { month: "long" })
-              },
-            }}
-            components={{
-              DayButton: ({ children, modifiers, day, ...props }) => {
-                const weather = weatherData ? getWeatherForDate(day.date) : undefined
-                const rainProb = weather?.rain_probability || 0
-                const bgColor = getRainBackgroundColor(rainProb)
-                const showRainPercent = weather && isRainyWeather(weather.weather_code) && rainProb > 0
+      <div className="flex flex-col gap-6">
+        <div className="flex gap-6 flex-col lg:flex-row">
+          <div>
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={handleDayClick}
+              numberOfMonths={1}
+              captionLayout="dropdown"
+              disabled={(date) => {
+                const today = new Date()
+                today.setHours(0, 0, 0, 0)
+                const twoWeeksFromNow = new Date(today)
+                twoWeeksFromNow.setDate(today.getDate() + 14)
+                return date < today || date >= twoWeeksFromNow
+              }}
+              defaultMonth={new Date()}
+              className="rounded-lg border shadow-sm [--cell-size:--spacing(11)] md:[--cell-size:--spacing(13)]"
+              formatters={{
+                formatMonthDropdown: (date) => {
+                  return date.toLocaleString("default", { month: "long" })
+                },
+              }}
+              components={{
+                DayButton: ({ children, modifiers, day, ...props }) => {
+                  const weather = weatherData ? getWeatherForDate(day.date) : undefined
+                  const rainProb = weather?.rain_probability || 0
+                  const bgColor = getRainBackgroundColor(rainProb)
+                  const showRainPercent = weather && isRainyWeather(weather.weather_code) && rainProb > 0
 
-                return (
-                  <CalendarDayButton 
-                    day={day} 
-                    modifiers={modifiers} 
-                    {...props}
-                    style={bgColor ? { backgroundColor: bgColor } : undefined}
-                  >
-                    {children}
-                    {!modifiers.outside && weather && (
-                      <div className="flex flex-col items-center gap-0.5">
-                        {getWeatherIcon(weather.weather_code, 14)}
-                        {showRainPercent && (
-                          <span className="text-[9px] font-semibold text-blue-700 dark:text-blue-300">
-                            {rainProb}%
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </CalendarDayButton>
-                )
-              },
-            }}
-          />
-        </div>
-        
-        {/* Info Box */}
-        {selectedDate && (
-          <Card className="w-full lg:w-80 shadow-lg h-fit">
-            <CardHeader>
-              <CardTitle className="text-lg">
-                {selectedDate.toLocaleDateString("en-US", {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {selectedWeather ? (
-                <>
-                  {/* Temperature */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
-                      <Sun className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                    </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">Temperature</div>
-                      <div className="text-lg font-semibold">
-                        {Math.round(selectedWeather.temp_min)}°F - {Math.round(selectedWeather.temp_max)}°F
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Rain Probability */}
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      selectedWeather.rain_probability > 0 
-                        ? 'bg-blue-100 dark:bg-blue-900/20' 
-                        : 'bg-gray-100 dark:bg-gray-800'
-                    }`}>
-                      <Droplets className={`h-5 w-5 ${
-                        selectedWeather.rain_probability > 0 
-                          ? 'text-blue-600 dark:text-blue-400' 
-                          : 'text-gray-400'
-                      }`} />
-                    </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">Rain Chance</div>
-                      <div className="text-lg font-semibold">
-                        {selectedWeather.rain_probability}%
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Precipitation */}
-                  {selectedWeather.precipitation > 0 && (
+                  return (
+                    <CalendarDayButton 
+                      day={day} 
+                      modifiers={modifiers} 
+                      {...props}
+                      style={bgColor ? { backgroundColor: bgColor } : undefined}
+                    >
+                      {children}
+                      {!modifiers.outside && weather && (
+                        <div className="flex flex-col items-center gap-0.5">
+                          {getWeatherIcon(weather.weather_code, 14)}
+                          {showRainPercent && (
+                            <span className="text-[9px] font-semibold text-blue-700 dark:text-blue-300">
+                              {rainProb}%
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </CalendarDayButton>
+                  )
+                },
+              }}
+            />
+          </div>
+          
+          {/* Info Box */}
+          {selectedDate && (
+            <Card className="w-full lg:w-80 shadow-lg h-fit">
+              <CardHeader>
+                <CardTitle className="text-lg">
+                  {selectedDate.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {selectedWeather ? (
+                  <>
+                    {/* Temperature */}
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
-                        <Droplets className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
+                        <Sun className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                       </div>
                       <div>
-                        <div className="text-sm text-muted-foreground">Expected Rainfall</div>
+                        <div className="text-sm text-muted-foreground">Temperature</div>
                         <div className="text-lg font-semibold">
-                          {selectedWeather.precipitation.toFixed(1)} mm
+                          {Math.round(selectedWeather.temp_min)}°F - {Math.round(selectedWeather.temp_max)}°F
                         </div>
                       </div>
                     </div>
-                  )}
 
-                  {/* Weather Condition */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-900/20 flex items-center justify-center">
-                      {getWeatherIcon(selectedWeather.weather_code, 20)}
-                    </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">Conditions</div>
-                      <div className="text-lg font-semibold">
-                        {selectedWeather.weather_description}
+                    {/* Rain Probability */}
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        selectedWeather.rain_probability > 0 
+                          ? 'bg-blue-100 dark:bg-blue-900/20' 
+                          : 'bg-gray-100 dark:bg-gray-800'
+                      }`}>
+                        <Droplets className={`h-5 w-5 ${
+                          selectedWeather.rain_probability > 0 
+                            ? 'text-blue-600 dark:text-blue-400' 
+                            : 'text-gray-400'
+                        }`} />
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Rain Chance</div>
+                        <div className="text-lg font-semibold">
+                          {selectedWeather.rain_probability}%
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Wind Speed */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900/20 flex items-center justify-center">
-                      <Wind className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-                    </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">Max Wind Speed</div>
-                      <div className="text-lg font-semibold">
-                        {Math.round(selectedWeather.wind_speed_max)} mph
+                    {/* Precipitation */}
+                    {selectedWeather.precipitation > 0 && (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
+                          <Droplets className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <div className="text-sm text-muted-foreground">Expected Rainfall</div>
+                          <div className="text-lg font-semibold">
+                            {selectedWeather.precipitation.toFixed(1)} mm
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Weather Condition */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-900/20 flex items-center justify-center">
+                        {getWeatherIcon(selectedWeather.weather_code, 20)}
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Conditions</div>
+                        <div className="text-lg font-semibold">
+                          {selectedWeather.weather_description}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* UV Index */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center">
-                      <Sun className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-                    </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">UV Index</div>
-                      <div className="text-lg font-semibold">
-                        {selectedWeather.uv_index_max.toFixed(1)}
+                    {/* Wind Speed */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900/20 flex items-center justify-center">
+                        <Wind className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Max Wind Speed</div>
+                        <div className="text-lg font-semibold">
+                          {Math.round(selectedWeather.wind_speed_max)} mph
+                        </div>
                       </div>
                     </div>
+
+                    {/* UV Index */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center">
+                        <Sun className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">UV Index</div>
+                        <div className="text-lg font-semibold">
+                          {selectedWeather.uv_index_max.toFixed(1)}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : weatherData ? (
+                  <div className="text-sm text-muted-foreground text-center py-4">
+                    No weather data available for this date
                   </div>
-                </>
-              ) : weatherData ? (
-                <div className="text-sm text-muted-foreground text-center py-4">
-                  No weather data available for this date
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground text-center py-4">
-                  Click "Fetch Weather Data" to see weather information
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                ) : (
+                  <div className="text-sm text-muted-foreground text-center py-4">
+                    Click "Fetch Weather Data" to see weather information
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Schedule Box */}
+        <Card className="w-full shadow-lg">
+          <CardContent className="flex items-center justify-center py-16">
+            <Button size="lg" className="gap-2">
+              <span className="text-lg">Generate Schedule with AI</span>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
