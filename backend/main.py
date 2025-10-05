@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 FastAPI backend for Mango Disease Detection
 """
+import sys
+import io
+
+# Fix encoding for Windows console
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 from fastapi import FastAPI, UploadFile, HTTPException, File
 from fastapi.middleware.cors import CORSMiddleware
-import io
 from PIL import Image
 import base64
 from typing import Dict, List
