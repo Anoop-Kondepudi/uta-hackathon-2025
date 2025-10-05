@@ -1232,7 +1232,6 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
                     )}
                   </div>
 
-<<<<<<< HEAD
                   {/* Description */}
                   <div>
                     <h3 className="text-base font-semibold text-foreground mb-3">
@@ -1292,28 +1291,6 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
                           />
                         )}
                       </div>
-=======
-                <Button
-                  onClick={handleAnalyze}
-                  disabled={!base64String || isAnalyzing}
-                  className="w-full"
-                  size="lg"
-                  data-analyze-btn
-                >
-                  {isAnalyzing ? "Analyzing..." : "Analyze for Diseases"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Loading Section */}
-            {isAnalyzing && (
-              <Card className="mt-4 animate-in slide-in-from-top duration-300">
-                <CardContent className="pt-6 space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">{allSteps[currentStep]}</span>
-                      <span className="text-muted-foreground">{Math.round(progress)}%</span>
->>>>>>> 05c859971b3811d5c43a9265ba91af8f4ecbbd48
                     </div>
                   </div>
 
