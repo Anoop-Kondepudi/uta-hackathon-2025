@@ -143,6 +143,19 @@ export default function DetectorPage() {
   const [loadingTreatment, setLoadingTreatment] = useState(false);
   const [loadingPrevention, setLoadingPrevention] = useState(false);
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
+  
+  // Notification state
+  const [showCompleteNotification, setShowCompleteNotification] = useState(false);
+  
+  // Track completion of all sections
+  const [completedSections, setCompletedSections] = useState({
+    info: false,
+    causes: false,
+    symptoms: false,
+    treatment: false,
+    prevention: false,
+    alternatives: false
+  });
 
   // Auto-scroll to bottom of logs when new steps are added
   useEffect(() => {
@@ -150,6 +163,36 @@ export default function DetectorPage() {
       logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
     }
   }, [allSteps, expandedLogs]);
+  
+  // Check if all sections are complete and show notification
+  useEffect(() => {
+    const allComplete = 
+      completedSections.info &&
+      completedSections.causes &&
+      completedSections.symptoms &&
+      completedSections.treatment &&
+      completedSections.prevention &&
+      (apiResults?.prediction?.confidence_percentage >= 80 || completedSections.alternatives);
+    
+    if (allComplete && showResults && !showCompleteNotification) {
+      setShowCompleteNotification(true);
+      // Auto-hide after 4 seconds
+      const timer = setTimeout(() => {
+        setShowCompleteNotification(false);
+        // Reset completed sections to prevent re-triggering
+        setCompletedSections({
+          info: false,
+          causes: false,
+          symptoms: false,
+          treatment: false,
+          prevention: false,
+          alternatives: false
+        });
+      }, 4000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [completedSections, showResults, apiResults]);
 
   const convertToBase64 = (file: File) => {
     const reader = new FileReader();
@@ -200,7 +243,7 @@ export default function DetectorPage() {
   };
 
   // Typing animation with reliable timing using requestAnimationFrame
-  const typeText = (text: string, setter: (val: string) => void) => {
+  const typeText = (text: string, setter: (val: string) => void, sectionName?: string) => {
     setter(""); // Clear previous content
     
     const maxDuration = 2500; // 2.5 seconds max
@@ -227,6 +270,11 @@ export default function DetectorPage() {
           // Final update with complete text
           setter(formatText(text));
           console.log(`✅ Completed in ${(elapsed / 1000).toFixed(2)}s`);
+          
+          // Mark section as complete
+          if (sectionName) {
+            setCompletedSections(prev => ({ ...prev, [sectionName]: true }));
+          }
         }
       }
     };
@@ -255,7 +303,7 @@ Use **bold** for important terms. Be clear and direct. No fluff.`
       const data = await response.json();
       if (data.success) {
         setLoadingInfo(false); // Stop loading before typing starts
-        typeText(data.text, setDiseaseInfo); // Start typing animation
+        typeText(data.text, setDiseaseInfo, 'info'); // Start typing animation
       }
     } catch (error) {
       console.error('Error generating disease info:', error);
@@ -283,7 +331,7 @@ IMPORTANT: Only use numbers (1. 2. 3.). Do NOT use asterisks (*) or bullets. Use
       const data = await response.json();
       if (data.success) {
         setLoadingCauses(false);
-        typeText(data.text, setDiseaseCauses);
+        typeText(data.text, setDiseaseCauses, 'causes');
       }
     } catch (error) {
       console.error('Error generating causes:', error);
@@ -311,7 +359,7 @@ IMPORTANT: Only use numbers (1. 2. 3.). Do NOT use asterisks (*) or bullets. Use
       const data = await response.json();
       if (data.success) {
         setLoadingSymptoms(false);
-        typeText(data.text, setDiseaseSymptoms);
+        typeText(data.text, setDiseaseSymptoms, 'symptoms');
       }
     } catch (error) {
       console.error('Error generating symptoms:', error);
@@ -344,7 +392,7 @@ IMPORTANT:
       const data = await response.json();
       if (data.success) {
         setLoadingTreatment(false);
-        typeText(data.text, setDiseaseTreatment);
+        typeText(data.text, setDiseaseTreatment, 'treatment');
       }
     } catch (error) {
       console.error('Error generating treatment:', error);
@@ -372,7 +420,7 @@ IMPORTANT: Only use numbers (1. 2. 3.). Do NOT use asterisks (*) or bullets. Use
       const data = await response.json();
       if (data.success) {
         setLoadingPrevention(false);
-        typeText(data.text, setDiseasePrevention);
+        typeText(data.text, setDiseasePrevention, 'prevention');
       }
     } catch (error) {
       console.error('Error generating prevention:', error);
@@ -406,7 +454,7 @@ Be concise but informative. Use **bold** for disease names and percentages.`
       const data = await response.json();
       if (data.success) {
         setLoadingAlternatives(false);
-        typeText(data.text, setDiseaseAlternatives);
+        typeText(data.text, setDiseaseAlternatives, 'alternatives');
       }
     } catch (error) {
       console.error('Error generating alternatives:', error);
@@ -434,6 +482,15 @@ Be concise but informative. Use **bold** for disease names and percentages.`
     setProgress(0);
     setAllSteps([]);
     setExpandedLogs(false);
+    setShowCompleteNotification(false);
+    setCompletedSections({
+      info: false,
+      causes: false,
+      symptoms: false,
+      treatment: false,
+      prevention: false,
+      alternatives: false
+    });
 
     // Start API calls immediately in parallel with animation
     const apiCallsPromise = (async () => {
@@ -594,6 +651,19 @@ Be concise but informative. Use **bold** for disease names and percentages.`
 
   return (
     <div className="min-h-screen p-8 bg-background relative">
+      {/* Completion Notification */}
+      {showCompleteNotification && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top duration-300">
+          <div className="bg-green-50 dark:bg-green-950 border-2 border-green-200 dark:border-green-800 rounded-lg shadow-lg p-3 flex items-center gap-3 max-w-sm">
+            <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-green-900 dark:text-green-100">Analysis Complete</p>
+              <p className="text-xs text-green-700 dark:text-green-300">All sections generated</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Debug Button */}
       <Button
         variant="outline"
