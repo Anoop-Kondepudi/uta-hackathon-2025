@@ -286,6 +286,34 @@ export default function DetectorPage() {
   const generateDiseaseInfo = async (diseaseName: string) => {
     setLoadingInfo(true);
     try {
+      // Special handling for "Healthy" status
+      if (diseaseName.toLowerCase() === 'healthy') {
+        const response = await fetch('/api/generate-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Rewrite the following text about healthy mango plants in a natural, conversational way:
+
+"Your mango plant appears to be in excellent health! A healthy mango plant exhibits vibrant green leaves, strong stems, and shows no signs of disease or pest damage. This indicates that the plant is receiving adequate sunlight, proper nutrition, and appropriate water, while being well-protected from common mango diseases."
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY the rewritten text, nothing else
+- Do NOT include phrases like "Here's the paraphrased text:" or "Here is:" or any meta-commentary
+- Keep it 2-4 sentences
+- Use **bold** for the term "healthy" or "excellent health"
+- Maintain the positive, encouraging tone
+- Start directly with the rewritten content`
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          setLoadingInfo(false);
+          typeText(data.text, setDiseaseInfo, 'info');
+        }
+        return;
+      }
+
+      // Normal disease information
       const response = await fetch('/api/generate-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -315,6 +343,41 @@ Use **bold** for important terms. Be clear and direct. No fluff.`
   const generateDiseaseCauses = async (diseaseName: string) => {
     setLoadingCauses(true);
     try {
+      // Special handling for "Healthy" status
+      if (diseaseName.toLowerCase() === 'healthy') {
+        const response = await fetch('/api/generate-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Rewrite the following text about factors contributing to healthy mango plants in your own words:
+
+"1. **Optimal Environmental Conditions**: Mango plants require abundant sunlight (at least 6-8 hours daily), warm temperatures (ideally 24-30°C), and suitable humidity levels to perform photosynthesis efficiently and develop strong, healthy tissues.
+
+2. **Balanced Nutrition and Watering**: Consistent and appropriate water supply, combined with a well-balanced fertilization program that provides essential macro and micronutrients, ensures the plant has the resources needed for robust growth, fruiting, and overall vigor.
+
+3. **Effective Pest and Disease Management**: Regular monitoring and timely intervention to control common mango pests (e.g., fruit flies, mealybugs) and diseases (e.g., anthracnose, powdery mildew) prevent stress, damage, and resource drain, allowing the plant to maintain its healthy state.
+
+4. **Appropriate Soil Health**: Well-draining, fertile soil with the correct pH range (typically 5.5-7.5) provides adequate aeration, water retention, and nutrient availability, which are crucial for a strong root system and the overall health and productivity of the mango plant."
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY the rewritten numbered list, nothing else
+- Do NOT include any introductory phrases like "Here's the paraphrased text:" or "Here is the rewritten version:" or similar
+- Start directly with "1. **Factor Name**:"
+- Keep the numbered list format (1. 2. 3. 4.)
+- Use **bold** for factor names
+- Rephrase each point naturally while keeping specific numbers and key details
+- Keep it concise`
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          setLoadingCauses(false);
+          typeText(data.text, setDiseaseCauses, 'causes');
+        }
+        return;
+      }
+
+      // Normal disease causes
       const response = await fetch('/api/generate-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -343,6 +406,41 @@ IMPORTANT: Only use numbers (1. 2. 3.). Do NOT use asterisks (*) or bullets. Use
   const generateDiseaseSymptoms = async (diseaseName: string) => {
     setLoadingSymptoms(true);
     try {
+      // Special handling for "Healthy" status
+      if (diseaseName.toLowerCase() === 'healthy') {
+        const response = await fetch('/api/generate-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Rewrite the following text about signs of a healthy mango plant in your own words:
+
+"1. **Vibrant Green Foliage**: Leaves display a rich, uniform green color without yellowing, browning, or discoloration, indicating proper chlorophyll production and nutrient absorption.
+
+2. **Strong Growth and Structure**: Stems and branches are firm and sturdy, with new growth emerging regularly, showing the plant's vigor and ability to support fruit development.
+
+3. **Clean Leaf Surfaces**: Leaves are free from spots, lesions, mold, powdery substances, or visible pests, demonstrating effective natural or managed disease and pest resistance.
+
+4. **No Wilting or Drooping**: The plant maintains an upright, turgid appearance throughout the day, signaling adequate water uptake and efficient vascular function."
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY the rewritten numbered list, nothing else
+- Do NOT include any introductory text like "Here's the paraphrased text:" or "Here are the signs:" or similar
+- Start directly with "1. **Indicator Name**:"
+- Keep the numbered list format (1. 2. 3. 4.)
+- Use **bold** for indicator names
+- Rephrase naturally while keeping key information
+- Keep it concise and positive`
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          setLoadingSymptoms(false);
+          typeText(data.text, setDiseaseSymptoms, 'symptoms');
+        }
+        return;
+      }
+
+      // Normal disease symptoms
       const response = await fetch('/api/generate-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -371,6 +469,41 @@ IMPORTANT: Only use numbers (1. 2. 3.). Do NOT use asterisks (*) or bullets. Use
   const generateDiseaseTreatment = async (diseaseName: string) => {
     setLoadingTreatment(true);
     try {
+      // Special handling for "Healthy" status
+      if (diseaseName.toLowerCase() === 'healthy') {
+        const response = await fetch('/api/generate-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Rewrite the following maintenance plan for healthy mango plants in your own words:
+
+"1. **Continue Regular Watering Schedule**: Maintain consistent deep watering every 7-10 days during growing season, adjusting based on rainfall and soil moisture, to support sustained growth and fruit development.
+
+2. **Apply Seasonal Fertilization**: Feed with a balanced NPK fertilizer (10-10-10 or 15-15-15) every 2-3 months during the growing season, supplemented with organic compost to maintain soil fertility and plant vigor.
+
+3. **Conduct Routine Monitoring**: Inspect leaves, stems, and fruits weekly for early signs of pests or diseases, enabling prompt intervention before issues become severe.
+
+4. **Practice Preventive Care**: Apply periodic dormant oil sprays or neem oil treatments to ward off common pests, and ensure good air circulation through proper pruning to prevent fungal diseases."
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY the rewritten numbered list, nothing else
+- Do NOT include any introductory phrases like "Here's the paraphrased text:" or "Here is the maintenance plan:" or similar
+- Start directly with "1. **Practice Name**:"
+- Keep the numbered list format (1. 2. 3. 4.)
+- Use **bold** for maintenance practice names
+- Rephrase naturally while keeping specific details (numbers, timeframes, products)
+- Maintain the instructional tone`
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          setLoadingTreatment(false);
+          typeText(data.text, setDiseaseTreatment, 'treatment');
+        }
+        return;
+      }
+
+      // Normal disease treatment
       const response = await fetch('/api/generate-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -404,6 +537,41 @@ IMPORTANT:
   const generateDiseasePrevention = async (diseaseName: string) => {
     setLoadingPrevention(true);
     try {
+      // Special handling for "Healthy" status
+      if (diseaseName.toLowerCase() === 'healthy') {
+        const response = await fetch('/api/generate-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Rewrite the following best practices for keeping mango plants healthy in your own words:
+
+"1. **Proper Site Selection**: Choose a location with full sun exposure, well-draining soil, and protection from strong winds to create optimal growing conditions from the start.
+
+2. **Sanitation and Hygiene**: Remove fallen leaves, fruits, and debris regularly to eliminate breeding grounds for pests and disease pathogens, and sterilize pruning tools between cuts.
+
+3. **Integrated Pest Management**: Implement a combination of biological controls, resistant varieties when available, and judicious use of organic or chemical treatments only when necessary.
+
+4. **Adequate Spacing and Pruning**: Maintain proper distance between trees and prune to ensure good air circulation, which reduces humidity around foliage and prevents fungal disease development."
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY the rewritten numbered list, nothing else
+- Do NOT include any introductory text like "Here's the paraphrased text:" or "Here are the best practices:" or similar
+- Start directly with "1. **Practice Name**:"
+- Keep the numbered list format (1. 2. 3. 4.)
+- Use **bold** for practice names
+- Rephrase naturally while keeping specific details
+- Keep it concise and actionable`
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          setLoadingPrevention(false);
+          typeText(data.text, setDiseasePrevention, 'prevention');
+        }
+        return;
+      }
+
+      // Normal disease prevention
       const response = await fetch('/api/generate-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -913,13 +1081,23 @@ Be concise but informative. Use **bold** for disease names and percentages.`
                   <p className="text-lg font-semibold">Mango</p>
                 </div>
 
-                {/* Disease Detected */}
+                {/* Disease Detected / Health Status */}
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Disease Detected</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                    {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' ? 'Health Status' : 'Disease Detected'}
+                  </h3>
                   {apiResults?.prediction && (
                     <>
-                      <p className="text-lg font-semibold text-red-600 flex items-center gap-2">
-                        <AlertCircle className="w-5 h-5" />
+                      <p className={`text-lg font-semibold flex items-center gap-2 ${
+                        apiResults.prediction.disease.toLowerCase() === 'healthy' 
+                          ? 'text-green-600 dark:text-green-400' 
+                          : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {apiResults.prediction.disease.toLowerCase() === 'healthy' ? (
+                          <CheckCircle2 className="w-5 h-5" />
+                        ) : (
+                          <AlertCircle className="w-5 h-5" />
+                        )}
                         {apiResults.prediction.disease}
                       </p>
                       <div className="mt-3">
@@ -935,10 +1113,16 @@ Be concise but informative. Use **bold** for disease names and percentages.`
 
                 {/* Description */}
                 <div>
-                  <h3 className="text-base font-semibold text-foreground mb-3">Description</h3>
+                  <h3 className="text-base font-semibold text-foreground mb-3">
+                    {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' ? 'Health Overview' : 'Description'}
+                  </h3>
                   <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
                     <div>
-                      <h4 className="text-sm font-bold text-foreground mb-2">What is {apiResults?.prediction?.disease || 'this disease'}?</h4>
+                      <h4 className="text-sm font-bold text-foreground mb-2">
+                        {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' 
+                          ? 'What does a healthy mango plant look like?' 
+                          : `What is ${apiResults?.prediction?.disease || 'this disease'}?`}
+                      </h4>
                       {loadingInfo ? (
                         <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
                           ✨ Generating...
@@ -951,7 +1135,11 @@ Be concise but informative. Use **bold** for disease names and percentages.`
                       )}
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-foreground mb-2">Typical causes for {apiResults?.prediction?.disease || 'this disease'} are:</h4>
+                      <h4 className="text-sm font-bold text-foreground mb-2">
+                        {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' 
+                          ? 'Factors contributing to plant health:' 
+                          : `Typical causes for ${apiResults?.prediction?.disease || 'this disease'} are:`}
+                      </h4>
                       {loadingCauses ? (
                         <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
                           ✨ Generating...
@@ -966,9 +1154,13 @@ Be concise but informative. Use **bold** for disease names and percentages.`
                   </div>
                 </div>
 
-                {/* Key Symptoms to Check */}
+                {/* Key Symptoms to Check / Health Indicators */}
                 <div>
-                  <h3 className="text-base font-semibold text-foreground mb-3">Key Symptoms to Check</h3>
+                  <h3 className="text-base font-semibold text-foreground mb-3">
+                    {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' 
+                      ? 'Signs of a Healthy Plant' 
+                      : 'Key Symptoms to Check'}
+                  </h3>
                   <div className="bg-muted/30 p-4 rounded-lg border">
                     {loadingSymptoms ? (
                       <p className="text-sm text-muted-foreground animate-pulse">
@@ -983,26 +1175,41 @@ Be concise but informative. Use **bold** for disease names and percentages.`
                   </div>
                 </div>
 
-                {/* Recommended Treatment Plan */}
+                {/* Recommended Treatment Plan / Maintenance Plan */}
                 <div>
-                  <h3 className="text-base font-semibold text-foreground mb-3">Recommended Treatment Plan</h3>
-                  <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-900">
+                  <h3 className="text-base font-semibold text-foreground mb-3">
+                    {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' 
+                      ? 'Recommended Maintenance Plan' 
+                      : 'Recommended Treatment Plan'}
+                  </h3>
+                  <div className={apiResults?.prediction?.disease?.toLowerCase() === 'healthy'
+                    ? "bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900"
+                    : "bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-900"
+                  }>
                     {loadingTreatment ? (
                       <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
                         ✨ Generating...
                       </p>
                     ) : (
                       <div 
-                        className="text-sm text-foreground dark:text-blue-100 leading-relaxed"
+                        className={`text-sm leading-relaxed ${
+                          apiResults?.prediction?.disease?.toLowerCase() === 'healthy'
+                            ? 'text-foreground dark:text-green-100'
+                            : 'text-foreground dark:text-blue-100'
+                        }`}
                         dangerouslySetInnerHTML={{ __html: diseaseTreatment || "Treatment recommendations and protocols will be displayed here." }}
                       />
                     )}
                   </div>
                 </div>
 
-                {/* Preventive Measures */}
+                {/* Preventive Measures / Best Practices */}
                 <div>
-                  <h3 className="text-base font-semibold text-foreground mb-3">Preventive Measures</h3>
+                  <h3 className="text-base font-semibold text-foreground mb-3">
+                    {apiResults?.prediction?.disease?.toLowerCase() === 'healthy' 
+                      ? 'Best Practices to Stay Healthy' 
+                      : 'Preventive Measures'}
+                  </h3>
                   <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-900">
                     {loadingPrevention ? (
                       <p className="text-sm text-muted-foreground leading-relaxed animate-pulse">
