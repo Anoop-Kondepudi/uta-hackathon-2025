@@ -425,6 +425,6 @@ Only return the JSON object, no additional text."""
 
 if __name__ == "__main__":
     print("🚀 Starting Mango Disease Detection API...")
-    print("📍 API will be available at: http://localhost:8000")
-    print("📖 API docs will be available at: http://localhost:8000/docs")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("📍 API will be available at: http://localhost:8001")
+    print("📖 API docs will be available at: http://localhost:8001/docs")
+    uvicorn.run(app, host="0.0.0.0", port=8001)
