@@ -701,7 +701,7 @@ Be concise but informative. Use **bold** for disease names and percentages.`,
       try {
         // Step 1: Check if the image is a plant leaf
         console.log("🔍 Checking if image is a plant...");
-        const checkResponse = await fetch("/api/check-plant", {
+        const checkResponse = await fetch("/api/check-plant-live", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

@@ -4,7 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Video, VideoOff, Camera, Bug, Image as ImageIcon } from "lucide-react";
 
-export default function LiveMangoPage() {
+interface LiveMangoPageProps {
+  onSwitchToDetector?: () => void;
+}
+
+export default function LiveMangoPage({ onSwitchToDetector }: LiveMangoPageProps) {
 
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [error, setError] = useState<string>("");
@@ -20,6 +24,7 @@ export default function LiveMangoPage() {
   const [consecutiveSingleLeafCount, setConsecutiveSingleLeafCount] = useState(0);
   const [detectionStatus, setDetectionStatus] = useState<'no-leaf' | 'single-leaf' | 'multiple-leaves' | 'initializing'>('initializing');
   const [capturedImageForAnalysis, setCapturedImageForAnalysis] = useState<string | null>(null);
+  const [shouldNavigateToDetector, setShouldNavigateToDetector] = useState(false);
   const [apiLogs, setApiLogs] = useState<Array<{
     timestamp: string;
     isPlant: boolean;
@@ -147,8 +152,10 @@ export default function LiveMangoPage() {
               // Use the PNG image directly from this (the third) API call
               // No conversion needed - keep it as PNG for disease detection API
               sessionStorage.setItem('capturedImage', base64Image);
-              console.log('✅ Stored PNG image from third detection, redirecting...');
-              window.location.href = '/detector';
+              console.log('✅ Stored PNG image from third detection, switching to detector...');
+              
+              // Trigger navigation via state (will be handled in useEffect)
+              setShouldNavigateToDetector(true);
               
               return 0; // Reset counter
             }
@@ -310,6 +317,18 @@ export default function LiveMangoPage() {
       setIsDescribing(false);
     }
   };
+
+  // Handle navigation to detector when triggered
+  useEffect(() => {
+    if (shouldNavigateToDetector) {
+      if (onSwitchToDetector) {
+        onSwitchToDetector();
+      } else {
+        window.location.href = '/detector';
+      }
+      setShouldNavigateToDetector(false);
+    }
+  }, [shouldNavigateToDetector, onSwitchToDetector]);
 
   // Cleanup on unmount
   useEffect(() => {
